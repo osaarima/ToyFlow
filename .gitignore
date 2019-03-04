@@ -1,0 +1,49 @@
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# Root-files:
+*.root
+
+# Exec-files
+exec_dijet_*
+
+#Additional files:
+.*.swp
+.*.sw0
+.*.swn
+*.vim
+orig/*
+NBIcode/*
+nanoDict.cc
+nanoDict_rdict.pcm
+toyFlow
