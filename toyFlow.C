@@ -140,9 +140,11 @@ int main(int argc, char **argv) {
 
     // Calculate efficiency related values
     EffValues *effValues[nHarmonics+1];
-    for (int iHarm=1; iHarm < nHarmonics; iHarm++) {
+    //cout << "effValues: " << effValues << endl;
+    for (int iHarm=1; iHarm < nHarmonics+1; iHarm++) {
         effValues[iHarm] = new EffValues;
         efficiencyCalc(effValues[iHarm], iHarm);
+        //cout << "effValues[" << iHarm << "]: " << effValues[iHarm] << endl;
     }
     
     int nOut = nEvents/20;
