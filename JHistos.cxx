@@ -61,6 +61,7 @@ JHistos::JHistos(){
                 hPsiDiff[iType][i][j] = new TH1D(Form("hPsiDiffT%02iH%02iE%02i",iType,i+1,j),Form("hPsiDiff%s%02i%02i",sType[iType].Data(),i+1,j),200, -4.0*TMath::Pi(), 4.0*TMath::Pi()); hPsiDiff[iType][i][j]->Sumw2();
                 hPsiDiffN[iType][i][j] = new TH1D(Form("hPsiDiffNT%02iH%02iE%02i",iType,i+1,j),Form("hPsiDiffN%s%02i%02i",sType[iType].Data(),i+1,j),200, -4.0*TMath::Pi(), 4.0*TMath::Pi()); hPsiDiffN[iType][i][j]->Sumw2();
             }
+            hTrueReso[iType][i] = new TH1D(Form("hTrueResoT%02iH%02i",iType,i+1),Form("hTrueResoT%s%02i",sType[iType].Data(),i+1),200, 0.0, 1.0); hTrueReso[iType][i]->Sumw2();
             hSPnominator[iType][i] = new TH1D(Form("hSPnominatorVT%02iH%02i",iType,i+1),Form("hSPnominatorV%s%02i",sType[iType].Data(),i+1),binsQ, LogQ2BinsX); hSPnominator[iType][i]->Sumw2();
             hSPdenominator[iType][i] = new TH1D(Form("hSPdenominatorVT%02iH%02i",iType,i+1),Form("hSPdenominatorV%s%02i",sType[iType].Data(),i+1),binsQ, LogQ2BinsX); hSPdenominator[iType][i]->Sumw2();
             hEPnominator[iType][i] = new TH1D(Form("hEPnominatorVT%02iH%02i",iType,i+1),Form("hEPnominatorV%s%02i",sType[iType].Data(),i+1),400,0.0,20.0); hEPnominator[iType][i]->Sumw2();

@@ -46,7 +46,7 @@ struct EffValues{
 
 void GetEvent(TClonesArray *allHadrons, TClonesArray *subEventA, TClonesArray *subEventB, TRandom3 *rand, TF1 *fPt, TF1 *fPhi, int nMulti, JHistos *histos);
 void GetDetectorParticles(TClonesArray *listAll, TClonesArray *listAllDet, TClonesArray *listSubADet, TClonesArray *listSubBDet, TRandom3 *rand, JHistos *histos);
-void AnalyzeEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *listSubB, bool bUseWeightning, bool bCorr, JHistos *histos, EffValues **effValues, int const nHisto);
+void AnalyzeEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *listSubB, double *truePsi, bool bUseWeightning, bool bCorr, JHistos *histos, EffValues **effValues, int const nHisto);
 double CalculateCumulants(TClonesArray *list, int n, bool bUseWeightning, Qvalues *qval, EffValues *effValues, JHistos *histos, int const nHisto, bool bCorr);
 double CalculateWeight(JToyMCTrack *track, bool bUseWeightning);
 double CalculateDotProduct(double ax, double ay, double bx, double by);
@@ -173,9 +173,9 @@ int main(int argc, char **argv) {
         
         GetEvent(allHadrons, subEventA, subEventB, randomGenerator, fPtDistribution, fPhiDistribution, nMult, histos);
         GetDetectorParticles(allHadrons, allHadronsDet, subEventDetA, subEventDetB, randomGenerator, histos);
-        AnalyzeEvent(allHadrons, subEventA, subEventB, bUseWeightning, false, histos, effValues, 0); //True MC
-        AnalyzeEvent(allHadronsDet, subEventDetA, subEventDetB, bUseWeightning, false, histos, effValues, 1); //Detector, no corr
-        AnalyzeEvent(allHadronsDet, subEventDetA, subEventDetB, bUseWeightning, true, histos, effValues, 2); //Detector, corr
+        AnalyzeEvent(allHadrons, subEventA, subEventB, Psi, bUseWeightning, false, histos, effValues, 0); //True MC
+        AnalyzeEvent(allHadronsDet, subEventDetA, subEventDetB, Psi, bUseWeightning, false, histos, effValues, 1); //Detector, no corr
+        AnalyzeEvent(allHadronsDet, subEventDetA, subEventDetB, Psi, bUseWeightning, true, histos, effValues, 2); //Detector, corr
     }
                                     
 	fOut->Write();
@@ -293,7 +293,7 @@ void GetDetectorParticles(TClonesArray *listAll,
 
 
 
-void AnalyzeEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *listSubB, bool bUseWeightning, bool bCorr, JHistos *histos, EffValues **effValues, int const nHisto){
+void AnalyzeEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *listSubB, double *truePsi, bool bUseWeightning, bool bCorr, JHistos *histos, EffValues **effValues, int const nHisto){
     double Qx, QxA, QxB, Qy, QyA, QyB, Q, QA, QB, Q2, Q2A, Q2B, Q4, Q4A, Q4B, Q6, Q6A, Q6B, psi, psiA, psiB, vnSPnominator,vnSPdenominator,vnEPnominator,vnEPdenominator;
     double sqrtSumWeights = 0.0, sqrtSumWeightsA = 0.0, sqrtSumWeightsB = 0.0;
 
@@ -330,6 +330,7 @@ void AnalyzeEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *l
             histos->hPsiDiff[nHisto][i][1]->Fill(psiA-psiB);
             histos->hPsiDiffN[nHisto][i][1]->Fill(n*(psiA-psiB));
         }
+        histos->hTrueReso[nHisto][i]->Fill(TMath::Cos(n*(psi-truePsi[i]))); //Note: truePsi goes from 0 to 4
 
 
         vnSPnominator = CalculateDotProduct(Qx, Qy, QxA, QyA);
