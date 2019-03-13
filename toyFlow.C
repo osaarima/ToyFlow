@@ -45,7 +45,7 @@ struct EffValues{
 };
 
 void GetEvent(TClonesArray *allHadrons, TClonesArray *subEventA, TClonesArray *subEventB, TRandom3 *rand, TF1 *fPt, TF1 *fPhi, int nMulti, JHistos *histos);
-void GetDetectorParticles(TClonesArray *listAll, TClonesArray *listAllDet, TClonesArray *listSubADet, TClonesArray *listSubBDet, TRandom3 *rand, JHistos *histos);
+void GetDetectorParticles(TClonesArray *listAll, TClonesArray *listAllDet, TClonesArray *listSubADet, TClonesArray *listSubBDet, double detAMax, double detAMin, double detBMax, double detBMin, double detAEff, double detBEff, TRandom3 *rand, JHistos *histos);
 void AnalyzeEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *listSubB, double *truePsi, bool bUseWeightning, bool bCorr, JHistos *histos, EffValues **effValues, int const nHisto);
 double CalculateCumulants(TClonesArray *list, int n, bool bUseWeightning, Qvalues *qval, EffValues *effValues, JHistos *histos, int const nHisto, bool bCorr);
 double CalculateWeight(JToyMCTrack *track, bool bUseWeightning);
@@ -55,12 +55,9 @@ double SingleParticlePhi(double *x, double *para);
 double AcceptanceFunc(double *x, double *p);
 double AcceptanceFuncSin(double *x, double *p);
 double AcceptanceFuncCos(double *x, double *p);
+bool isInAcc(double phi, double detMax, double detMin);
 double DeltaPhi(double phi1, double phi2);
-void efficiencyCalc(EffValues *effValues, int iHarm);
-
-double const detAMax = 2.0*TMath::Pi()/3.0, detAMin = TMath::Pi()/3.0;
-double const detBMax = 0.0,                 detBMin = -TMath::Pi()/2.0;
-double const detAEff = 0.4,                 detBEff = 0.85;
+void efficiencyCalc(EffValues *effValues, int iHarm, double detAMax, double detAMin, double detBMax, double detBMin, double detAEff, double detBEff);
 
 
 
@@ -81,6 +78,15 @@ int main(int argc, char **argv) {
     const int nHarmonics = 5;
     const double vn[nHarmonics] = {0.0, 0.15, 0.08, 0.03, 0.01}; // Peripheral
     //const double vn[nHarmonics] = {0.0, 0.01, 0.00, 0.00, 0.00}; // Very central
+    
+    // Effieciency
+    //double const detAMax = 2.0*TMath::Pi()/3.0, detAMin = TMath::Pi()/3.0;
+    //double const detBMax = 0.0,                 detBMin = -TMath::Pi()/2.0;
+    //double const detAEff = 0.4,                 detBEff = 0.85;
+    double const detAMax = TMath::Pi(),         detAMin = 2.0;
+    double const detBMax = 2.0,                 detBMin = -TMath::Pi();
+    double const detAEff = 0.6,                 detBEff = 1.0;
+
     
     bool bRandomPsi = true;
     bool bUseWeightning = false;
@@ -123,7 +129,7 @@ int main(int argc, char **argv) {
     TClonesArray *subEventDetB = new TClonesArray("JToyMCTrack", nMult+1);
 	
     // save input numbers
-    TH1D *hInputNumbers = new TH1D("hInputNumbers","hInputNumbers",13, 0.5, 13.5);
+    TH1D *hInputNumbers = new TH1D("hInputNumbers","hInputNumbers",19, 0.5, 19.5);
     hInputNumbers->Fill(1, double(nEvents));
     hInputNumbers->Fill(2, double(dNdeta));
     hInputNumbers->Fill(3, etaRange);
@@ -137,13 +143,19 @@ int main(int argc, char **argv) {
     hInputNumbers->Fill(11, vr);
     hInputNumbers->Fill(12, Teff);
     hInputNumbers->Fill(13, 1./Teff);
+    hInputNumbers->Fill(14, detAMax);
+    hInputNumbers->Fill(15, detAMin);
+    hInputNumbers->Fill(16, detBMax);
+    hInputNumbers->Fill(17, detBMin);
+    hInputNumbers->Fill(18, detAEff);
+    hInputNumbers->Fill(19, detBEff);
 
     // Calculate efficiency related values
     EffValues *effValues[nHarmonics+1];
     //cout << "effValues: " << effValues << endl;
     for (int iHarm=1; iHarm < nHarmonics+1; iHarm++) {
         effValues[iHarm] = new EffValues;
-        efficiencyCalc(effValues[iHarm], iHarm);
+        efficiencyCalc(effValues[iHarm], iHarm, detAMax, detAMin, detBMax, detBMin, detAEff, detBEff);
         //cout << "effValues[" << iHarm << "]: " << effValues[iHarm] << endl;
     }
     
@@ -172,7 +184,9 @@ int main(int argc, char **argv) {
         }
         
         GetEvent(allHadrons, subEventA, subEventB, randomGenerator, fPtDistribution, fPhiDistribution, nMult, histos);
-        GetDetectorParticles(allHadrons, allHadronsDet, subEventDetA, subEventDetB, randomGenerator, histos);
+        GetDetectorParticles(allHadrons, allHadronsDet, subEventDetA, subEventDetB, 
+                             detAMax, detAMin, detBMax, detBMin, detAEff, detBEff,
+                             randomGenerator, histos);
         AnalyzeEvent(allHadrons, subEventA, subEventB, Psi, bUseWeightning, false, histos, effValues, 0); //True MC
         AnalyzeEvent(allHadronsDet, subEventDetA, subEventDetB, Psi, bUseWeightning, false, histos, effValues, 1); //Detector, no corr
         AnalyzeEvent(allHadronsDet, subEventDetA, subEventDetB, Psi, bUseWeightning, true, histos, effValues, 2); //Detector, corr
@@ -224,11 +238,13 @@ void GetEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *listS
 
 void GetDetectorParticles(TClonesArray *listAll, 
                           TClonesArray *listAllDet, TClonesArray *listSubADet, TClonesArray *listSubBDet,
+                          double detAMax, double detAMin, double detBMax, double detBMin, double detAEff, double detBEff,
                           TRandom3 *rand, JHistos *histos){
 
     int numberOfTracks = listAll->GetEntriesFast();
 
     double eta,phi,pT,px,py,pz,E;
+    int detMultiplicity = 0;
     int iTrack=0;
 
     JToyMCTrack newTrack;
@@ -251,9 +267,10 @@ void GetDetectorParticles(TClonesArray *listAll,
         lVec.SetPxPyPzE(px,py,pz,E);
         newTrack.SetTrack( lVec, 0, 0, 0, 1, 0, 0, i); // Lorentz vector + isHT, isHard, isSoft, isCharged, isIsolated, isLeading, nID
 
-        if((phi < detAMax && phi > detAMin && rand->Uniform(0.0,1.0) > detAEff) ||
-           (phi < detBMax && phi > detBMin && rand->Uniform(0.0,1.0) > detBEff) ) {
+        if((isInAcc(phi,detAMax,detAMin) && rand->Uniform(0.0,1.0) < detAEff) ||
+           (isInAcc(phi,detBMax,detBMin) && rand->Uniform(0.0,1.0) < detBEff) ) {
             new((*listAllDet)[iTrack++]) JToyMCTrack( newTrack );
+            detMultiplicity++;
             histos->hPt[1]->Fill(pT);
             histos->hPt[2]->Fill(pT);
             histos->hPhi[1]->Fill(phi);
@@ -266,6 +283,8 @@ void GetDetectorParticles(TClonesArray *listAll,
             //newTrack.SetVect(track.Vect());
         }
     }
+    histos->hMultiplicity[1]->Fill(1.*detMultiplicity);
+    histos->hMultiplicity[2]->Fill(1.*detMultiplicity);
 
     numberOfTracks = listAllDet->GetEntriesFast();
     int nSub = int( numberOfTracks/2.0 );
@@ -471,13 +490,17 @@ double SingleParticlePhi(double *x, double *p){
 double AcceptanceFunc(double *x, double *p){
     double phi = x[0];
     double scaling = p[0];
-    double accA = detAEff;
-    double accB = detBEff;
+    double effA = p[1];
+    double effB = p[2];
+    double detMaxA = p[3];
+    double detMinA = p[4];
+    double detMaxB = p[5];
+    double detMinB = p[6];
     double value = 0.0;
-    if(phi < detAMax && phi > detAMin) {
-        value = scaling*accA/(2.0*TMath::Pi());
-    } else if(phi < detBMax && phi > detBMin) {
-        value = scaling*accB/(2.0*TMath::Pi());
+    if(isInAcc(phi,detMaxA,detMinA)) {
+        value = scaling*effA/(2.0*TMath::Pi());
+    } else if(isInAcc(phi,detMaxB,detMinB)) {
+        value = scaling*effB/(2.0*TMath::Pi());
     }
     return value;
 }
@@ -485,14 +508,18 @@ double AcceptanceFunc(double *x, double *p){
 double AcceptanceFuncCos(double *x, double *p){
     double phi = x[0];
     double scaling = p[0];
-    double multiply = p[1];
-    double accA = detAEff;
-    double accB = detBEff;
+    double effA = p[1];
+    double effB = p[2];
+    double detMaxA = p[3];
+    double detMinA = p[4];
+    double detMaxB = p[5];
+    double detMinB = p[6];
+    double multiply = p[7];
     double value = 0.0;
-    if(phi < detAMax && phi > detAMin) {
-        value = scaling*accA/(2.0*TMath::Pi()) * TMath::Cos(multiply*phi);
-    } else if(phi < detBMax && phi > detBMin) {
-        value = scaling*accB/(2.0*TMath::Pi()) * TMath::Cos(multiply*phi);
+    if(isInAcc(phi,detMaxA,detMinA)) {
+        value = scaling*effA/(2.0*TMath::Pi()) * TMath::Cos(multiply*phi);
+    } else if(isInAcc(phi,detMaxB,detMinB)) {
+        value = scaling*effB/(2.0*TMath::Pi()) * TMath::Cos(multiply*phi);
     }
     return value;
 }
@@ -500,19 +527,27 @@ double AcceptanceFuncCos(double *x, double *p){
 double AcceptanceFuncSin(double *x, double *p){
     double phi = x[0];
     double scaling = p[0];
-    double multiply = p[1];
-    double accA = detAEff;
-    double accB = detBEff;
+    double effA = p[1];
+    double effB = p[2];
+    double detMaxA = p[3];
+    double detMinA = p[4];
+    double detMaxB = p[5];
+    double detMinB = p[6];
+    double multiply = p[7];
     double value = 0.0;
-    if(phi < detAMax && phi > detAMin) {
-        value = scaling*accA/(2.0*TMath::Pi()) * TMath::Sin(multiply*phi);
-    } else if(phi < detBMax && phi > detBMin) {
-        value = scaling*accB/(2.0*TMath::Pi()) * TMath::Sin(multiply*phi);
+    if(isInAcc(phi,detMaxA,detMinA)) {
+        value = scaling*effA/(2.0*TMath::Pi()) * TMath::Sin(multiply*phi);
+    } else if(isInAcc(phi,detMaxB,detMinB)) {
+        value = scaling*effB/(2.0*TMath::Pi()) * TMath::Sin(multiply*phi);
     }
     return value;
 }
 
 
+// Test if in det acceptance:
+bool isInAcc(double phi, double detMax, double detMin) {
+    return phi <= detMax && phi > detMin;
+}
 
 // Delta_phi on correlation function
 double DeltaPhi(double phi1, double phi2) {
@@ -520,7 +555,7 @@ double DeltaPhi(double phi1, double phi2) {
     return res>-TMath::Pi()/3.0 ? res : 2.0*TMath::Pi()+res ; 
 }
 
-void efficiencyCalc(EffValues *effValues, int iHarm) {
+void efficiencyCalc(EffValues *effValues, int iHarm, double detAMax, double detAMin, double detBMax, double detBMin, double detAEff, double detBEff) {
 
     double const pi = TMath::Pi();
     // u_n = x_n + iy_n ≡ cos nφ + isin nφ
@@ -552,6 +587,25 @@ void efficiencyCalc(EffValues *effValues, int iHarm) {
     fAcceptanceFunc->SetParameter(0,1.0);
     fAcceptanceFuncSin->SetParameter(0,1.0);
     fAcceptanceFuncCos->SetParameter(0,1.0);
+    fAcceptanceFunc->SetParameter(1,detAEff);
+    fAcceptanceFuncSin->SetParameter(1,detAEff);
+    fAcceptanceFuncCos->SetParameter(1,detAEff);
+    fAcceptanceFunc->SetParameter(2,detBEff);
+    fAcceptanceFuncSin->SetParameter(2,detBEff);
+    fAcceptanceFuncCos->SetParameter(2,detBEff);
+    fAcceptanceFunc->SetParameter(3,detAMax);
+    fAcceptanceFuncSin->SetParameter(3,detAMax);
+    fAcceptanceFuncCos->SetParameter(3,detAMax);
+    fAcceptanceFunc->SetParameter(4,detAMin);
+    fAcceptanceFuncSin->SetParameter(4,detAMin);
+    fAcceptanceFuncCos->SetParameter(4,detAMin);
+    fAcceptanceFunc->SetParameter(5,detBMax);
+    fAcceptanceFuncSin->SetParameter(5,detBMax);
+    fAcceptanceFuncCos->SetParameter(5,detBMax);
+    fAcceptanceFunc->SetParameter(6,detBMin);
+    fAcceptanceFuncSin->SetParameter(6,detBMin);
+    fAcceptanceFuncCos->SetParameter(6,detBMin);
+
 
     integral = fAcceptanceFunc->Integral(-pi,pi);
     //cout << "Acc func integral: " << integral << endl;
@@ -561,14 +615,14 @@ void efficiencyCalc(EffValues *effValues, int iHarm) {
     //integral = fAcceptanceFunc->Integral(-pi,pi);
     //cout << "Acc func integral after scaling: " << integral << endl;
 
-    fAcceptanceFuncSin->SetParameter(1,(double)iHarm);
-    fAcceptanceFuncCos->SetParameter(1,(double)iHarm);
+    fAcceptanceFuncSin->SetParameter(7,(double)iHarm);
+    fAcceptanceFuncCos->SetParameter(7,(double)iHarm);
     sBar = fAcceptanceFuncSin->Integral(-pi,pi);
     cBar = fAcceptanceFuncCos->Integral(-pi,pi);
     //cout << "sBar=" << sBar << ", cBar=" << cBar << endl;
 
-    fAcceptanceFuncSin->SetParameter(1,2.0*(double)iHarm);
-    fAcceptanceFuncCos->SetParameter(1,2.0*(double)iHarm);
+    fAcceptanceFuncSin->SetParameter(7,2.0*(double)iHarm);
+    fAcceptanceFuncCos->SetParameter(7,2.0*(double)iHarm);
     s2nBar = fAcceptanceFuncSin->Integral(-pi,pi);
     c2nBar = fAcceptanceFuncCos->Integral(-pi,pi);
 
@@ -592,6 +646,11 @@ void efficiencyCalc(EffValues *effValues, int iHarm) {
     (*effValues).lambda2nSPlus = lambda2nSPlus;
     (*effValues).a2nPlus = a2nPlus;
     (*effValues).a2nMinus = a2nMinus;
+
+    cout << "==================== For harmonic " << iHarm << " ====================" << endl;
+    cout << "cBar           = " << cBar <<           ", sBar          = " << sBar << endl;
+    cout << "lambda2nSMinus = " << lambda2nSMinus << ", lambda2nSPlus = " << lambda2nSPlus << endl;
+    cout << "a2nPlus        = " << a2nPlus <<        ", a2nMinus      = " << a2nMinus << endl;
     
 }
 

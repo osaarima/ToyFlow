@@ -17,13 +17,15 @@ double CalculateV2ErrorUsingEPorSP( double up, double down, double eUp, double e
 double CalculateResolutionKOne( double Xi );
 double fFitMeanQ( double *x, double *p );
 void checkUnderOverFlow( TH1 *h );
+double AcceptanceFunc(double *x, double *p);
+bool isInAcc(double phi, double detMax, double detMin);
 
-void PlotToyFlow(int iType=0, bool bDrawNegRHisto = false, bool bUseWeightning = false, bool bCheckAllHistos = false, bool bPrintGraphs = false ){
+void PlotToyFlow(int iType=1, bool bDrawNegRHisto = false, bool bUseWeightning = false, bool bCheckAllHistos = false, bool bPrintGraphs = false ){
     int nType = 3;
     
     int iDrawNegRHisto=0;
     if(bDrawNegRHisto) iDrawNegRHisto=1;
-    TString sFileName = "toyFlow_noWeight_randomPsi_dNdeta-1000_nEvents-1000000-Test.root";
+    TString sFileName = "toyFlow_noWeight_randomPsi_dNdeta-1000_nEvents-1000-Test.root";
     //TString sFileName = "toyFlow_noWeight_randomPsi_dNdeta-1000_nEvents-100000-TestHistoNames.root";
     TFile *fIn = TFile::Open(sFileName,"read");
     if(fIn==0x0) {
@@ -44,12 +46,18 @@ void PlotToyFlow(int iType=0, bool bDrawNegRHisto = false, bool bUseWeightning =
     double vr = hInputNumbers->GetBinContent(11);
     double Teff = hInputNumbers->GetBinContent(12);
     double slope = hInputNumbers->GetBinContent(13);
+    double const detAMax = hInputNumbers->GetBinContent(14);
+    double const detAMin = hInputNumbers->GetBinContent(15);
+    double const detBMax = hInputNumbers->GetBinContent(16);
+    double const detBMin = hInputNumbers->GetBinContent(17);
+    double const detAEff = hInputNumbers->GetBinContent(18);
+    double const detBEff = hInputNumbers->GetBinContent(19);
     
     TH1D *hFlowIn = new TH1D("hFlowIn", "hFlowIn", nCoef, 0.5, double(nCoef)+0.5);
     hFlowIn->SetLineStyle(1);
     hFlowIn->SetLineColor(1);
     hFlowIn->SetLineWidth(2);
-    for(int i = 0; i < nCoef; i++) hFlowIn->Fill(double(i+1),inputFlow[i]);
+    for(int i = 0; i < nCoef; i++) hFlowIn->SetBinContent(i+1,inputFlow[i]);
     
     TH1D *hPhi[nType];
     hPhi[iType] = (TH1D*)fIn->Get(Form("hPhiT%02i",iType));
@@ -80,11 +88,18 @@ void PlotToyFlow(int iType=0, bool bDrawNegRHisto = false, bool bUseWeightning =
     hEta[iType]->SetMarkerSize(0.8);
     
     TH1D *hMultiplicity[nType];
-    hMultiplicity[iType] = (TH1D*)fIn->Get(Form("hMultiplicityT%02i",iType));
-    hMultiplicity[iType]->Scale(1./nEvents,"width");
-    hMultiplicity[iType]->SetMarkerStyle(24);
-    hMultiplicity[iType]->SetMarkerColor(1);
-    hMultiplicity[iType]->SetMarkerSize(0.8);
+    hMultiplicity[0] = (TH1D*)fIn->Get(Form("hMultiplicityT%02i",0));
+    hMultiplicity[0]->Scale(1./nEvents,"width");
+    hMultiplicity[0]->SetMarkerStyle(24);
+    hMultiplicity[0]->SetMarkerColor(1);
+    hMultiplicity[0]->SetMarkerSize(0.8);
+    if(iType!=0) {
+        hMultiplicity[iType] = (TH1D*)fIn->Get(Form("hMultiplicityT%02i",iType));
+        hMultiplicity[iType]->Scale(1./nEvents,"width");
+        hMultiplicity[iType]->SetMarkerStyle(24);
+        hMultiplicity[iType]->SetMarkerColor(1);
+        hMultiplicity[iType]->SetMarkerSize(0.8);
+    }
     
     TH1D *hSqrtSumWeights[nType];
     hSqrtSumWeights[iType] = (TH1D*)fIn->Get(Form("hSqrtSumWeightsT%02i",iType));
@@ -108,6 +123,7 @@ void PlotToyFlow(int iType=0, bool bDrawNegRHisto = false, bool bUseWeightning =
     hSqrtSumWeightsB[iType]->SetMarkerSize(0.8);
     
     double meanMultiplicity = hMultiplicity[iType]->GetMean();
+    double meanMultiplicityTrue = hMultiplicity[0]->GetMean();
     double meanMultiplicityError = hMultiplicity[iType]->GetMeanError();
     
     double weight = hSqrtSumWeights[iType]->GetMean();
@@ -117,6 +133,21 @@ void PlotToyFlow(int iType=0, bool bDrawNegRHisto = false, bool bUseWeightning =
         weight *= TMath::Sqrt( meanMultiplicity );
         weightError *= TMath::Sqrt( meanMultiplicity ); // Need to update error from mean multiplicity itself
     }
+
+    TF1 *fAcceptanceFunc = new TF1("fAcceptanceFunc", AcceptanceFunc, -TMath::Pi(), TMath::Pi(), 10);
+    fAcceptanceFunc->SetParameter(0,1.0);
+    fAcceptanceFunc->SetParameter(1,detAEff);
+    fAcceptanceFunc->SetParameter(2,detBEff);
+    fAcceptanceFunc->SetParameter(3,detAMax);
+    fAcceptanceFunc->SetParameter(4,detAMin);
+    fAcceptanceFunc->SetParameter(5,detBMax);
+    fAcceptanceFunc->SetParameter(6,detBMin);
+    //const double accIntegral = fAcceptanceFunc->Integral(-pi,pi);
+    fAcceptanceFunc->SetParameter(0,meanMultiplicityTrue);
+    fAcceptanceFunc->SetLineStyle(1);
+    fAcceptanceFunc->SetLineColor(1);
+    fAcceptanceFunc->SetLineWidth(2);
+    
     
     // integrated flow
     TH1D *hQx[nType][nCoef];
@@ -127,6 +158,7 @@ void PlotToyFlow(int iType=0, bool bDrawNegRHisto = false, bool bUseWeightning =
     TH1D *hQ6[nType][nCoef];
     TH1D *hvObs[nType][nCoef];
     TH1D *hrSub[nType][nCoef];
+    TH1D *hTrueReso[nType][nCoef];
     TH2D *hPsiAB[nType][nCoef][2];
     TH1D *hPsiDiff[nType][nCoef][2];
     TH1D *hPsiDiffN[nType][nCoef][2];
@@ -186,6 +218,13 @@ void PlotToyFlow(int iType=0, bool bDrawNegRHisto = false, bool bUseWeightning =
         hrSub[iType][i]->SetMarkerSize(0.8);
         checkUnderOverFlow(hrSub[iType][i]);
         
+        hTrueReso[iType][i] = (TH1D*)fIn->Get( Form("hTrueResoT%02iH%02i",iType,i+1) );
+        hTrueReso[iType][i]->Scale(1./hTrueReso[iType][i]->GetEntries(),"width");
+        hTrueReso[iType][i]->SetMarkerStyle(20);
+        hTrueReso[iType][i]->SetMarkerColor(2);
+        hTrueReso[iType][i]->SetMarkerSize(0.8);
+        checkUnderOverFlow(hTrueReso[iType][i]);
+        
         for(int j=0; j<2; j++) {
             hPsiAB[iType][i][j] = (TH2D*)fIn->Get( Form("hPsiABT%02iH%02iE%02i",iType,i+1,j) );
             //hPsiAB[iType][i][j]->Scale(1./hPsiAB[iType][i][j]->GetEntries(),"width");
@@ -242,7 +281,9 @@ void PlotToyFlow(int iType=0, bool bDrawNegRHisto = false, bool bUseWeightning =
     double meanQ6[nCoef] = {0}, meanErrorQ6[nCoef] = {0};
     double meanvObs[nCoef] = {0}, meanErrorvObs[nCoef] = {0};
     double meanvRealEP[nCoef] = {0}, meanErrorvRealEP[nCoef] = {0};
+    double meanvRealEPTrue[nCoef] = {0}, meanErrorvRealEPTrue[nCoef] = {0};
     double meanrSub[nCoef] = {0}, meanErrorrSub[nCoef] = {0};
+    double meanrTrue[nCoef] = {0}, meanErrorrTrue[nCoef] = {0};
     double meanrSubFull[nCoef] = {0}, meanErrorrSubFull[nCoef] = {0};
     double meanSPnom[nCoef] = {0}, meanErrorSPnom[nCoef] = {0};
     double meanSPdenom[nCoef] = {0}, meanErrorSPdenom[nCoef] = {0};
@@ -366,6 +407,7 @@ void PlotToyFlow(int iType=0, bool bDrawNegRHisto = false, bool bUseWeightning =
         meanQ6[i] = hQ6[iType][i]->GetMean(); meanErrorQ6[i] = hQ6[iType][i]->GetMeanError();
         meanvObs[i] = hvObs[iType][i]->GetMean(); meanErrorvObs[i] = hvObs[iType][i]->GetMeanError();
         meanrSub[i] = sqrt(hrSub[iType][i]->GetMean()); meanErrorrSub[i] = sqrt(hrSub[iType][i]->GetMeanError());
+        meanrTrue[i] = sqrt(hTrueReso[iType][i]->GetMean()); meanErrorrSub[i] = sqrt(hTrueReso[iType][i]->GetMeanError());
         tryXi=0.001;
         iterDiff=1.0;
         while(iterDiff>0.001) {
@@ -381,6 +423,9 @@ void PlotToyFlow(int iType=0, bool bDrawNegRHisto = false, bool bUseWeightning =
         meanvRealEP[i] = meanvObs[i]/meanrSubFull[i];
         meanErrorvRealEP[i] = meanvRealEP[i] * TMath::Sqrt( meanErrorvObs[i]*meanErrorvObs[i]/meanvObs[i]/meanvObs[i] +
                                                             meanErrorvRealEP[i]*meanErrorvRealEP[i]/meanvRealEP[i]/meanvRealEP[i] ); 
+        meanvRealEPTrue[i] = meanvObs[i]/meanrTrue[i];
+        meanErrorvRealEPTrue[i] = meanvRealEPTrue[i] * TMath::Sqrt( meanErrorvObs[i]*meanErrorvObs[i]/meanvObs[i]/meanvObs[i] +
+                                                                    meanErrorvRealEPTrue[i]*meanErrorvRealEPTrue[i]/meanvRealEPTrue[i]/meanvRealEPTrue[i] ); 
         //mc(iFig++);
         //hvObs[iType][i]->Draw();
         if(hrSub[iType][i]->GetBinContent(0)>0) cout << "rSub underflow bin not empty!" << endl;
@@ -455,19 +500,25 @@ void PlotToyFlow(int iType=0, bool bDrawNegRHisto = false, bool bUseWeightning =
     gv2withRealEP->SetMarkerStyle(28);
     gv2withRealEP->SetMarkerColor(7);
     gv2withRealEP->SetMarkerSize(0.8);
+    TGraphErrors *gv2withRealEPTrue = new TGraphErrors(nCoef);
+    gv2withRealEPTrue->SetMarkerStyle(28);
+    gv2withRealEPTrue->SetMarkerColor(8);
+    gv2withRealEPTrue->SetMarkerSize(0.8);
     for(int i = 0; i < nCoef; i++){
         gv2with1cumul->SetPoint(i, double(i+1)-0.3, v1cumul[i]);
         gv2with4cumul->SetPoint(i,double(i+1)-0.2, v4cumul[i]);
         gv2with6cumul->SetPoint(i,double(i+1)-0.1, v6cumul[i]);
-        gv2withEP->SetPoint(i,double(i+1)+0.1, vEP[i]);
-        gv2withSP->SetPoint(i,double(i+1)+0.2, vSP[i]);
-        gv2withRealEP->SetPoint(i,double(i+1)+0.3, meanvRealEP[i]);
+        gv2withEP->SetPoint(i,double(i+1)+0.0, vEP[i]);
+        gv2withSP->SetPoint(i,double(i+1)+0.1, vSP[i]);
+        gv2withRealEP->SetPoint(i,double(i+1)+0.2, meanvRealEP[i]);
+        gv2withRealEPTrue->SetPoint(i,double(i+1)+0.3, meanvRealEPTrue[i]);
         gv2with1cumul->SetPointError(i, 0.0, v1cumulError[i]);
         gv2with4cumul->SetPointError(i, 0.0, v4cumulError[i]);
         gv2with6cumul->SetPointError(i, 0.0, v6cumulError[i]);
         gv2withEP->SetPointError(i, 0.0, vEPError[i]);
         gv2withSP->SetPointError(i, 0.0, vSPError[i]);
         gv2withRealEP->SetPointError(i, 0.0, meanErrorvRealEP[i]);
+        gv2withRealEPTrue->SetPointError(i, 0.0, meanErrorvRealEPTrue[i]);
     }
     
     if(bPrintGraphs){
@@ -477,6 +528,7 @@ void PlotToyFlow(int iType=0, bool bDrawNegRHisto = false, bool bUseWeightning =
         gv2withEP->Print();
         gv2withSP->Print();
         gv2withRealEP->Print();
+        gv2withRealEPTrue->Print();
     }
     
     TGraphErrors *gv2ratioWith1cumul = new TGraphErrors(nCoef);
@@ -503,6 +555,10 @@ void PlotToyFlow(int iType=0, bool bDrawNegRHisto = false, bool bUseWeightning =
     gv2ratioWithRealEP->SetMarkerStyle(28);
     gv2ratioWithRealEP->SetMarkerColor(7);
     gv2ratioWithRealEP->SetMarkerSize(0.8);
+    TGraphErrors *gv2ratioWithRealEPTrue = new TGraphErrors(nCoef);
+    gv2ratioWithRealEPTrue->SetMarkerStyle(28);
+    gv2ratioWithRealEPTrue->SetMarkerColor(8);
+    gv2ratioWithRealEPTrue->SetMarkerSize(0.8);
     for(int i = 0; i < nCoef; i++){
         double x, y, ey, ratio;
         double in = inputFlow[i];
@@ -536,6 +592,11 @@ void PlotToyFlow(int iType=0, bool bDrawNegRHisto = false, bool bUseWeightning =
         ey = gv2withRealEP->GetErrorY(i);
         gv2ratioWithRealEP->SetPoint(i, x, y - in );
         gv2ratioWithRealEP->SetPointError(i, 0.0, ey );
+
+        gv2withRealEPTrue->GetPoint(i, x, y );
+        ey = gv2withRealEPTrue->GetErrorY(i);
+        gv2ratioWithRealEPTrue->SetPoint(i, x, y - in );
+        gv2ratioWithRealEPTrue->SetPointError(i, 0.0, ey );
     }
     
     
@@ -585,18 +646,20 @@ void PlotToyFlow(int iType=0, bool bDrawNegRHisto = false, bool bUseWeightning =
     gPad->SetLogx(0); gPad->SetLogy(0);
     //mpad->SetGridx(0); mpad->SetGridy(0);
     
-    hfr = new TH2F(Form("hfr%02d",iFig)," ", 1, -3.2, 3.2, 10, 0.0, 1.1*fPhiInput->Eval(0.0));
+    hfr = new TH2F(Form("hfr%02d",iFig)," ", 1, -3.2, 3.2, 10, 0.0,1.1*fPhiInput->Eval(0.0));
     myhset( *hfr, "#phi  [rad/#pi]", "1/N_{ev} dN/d#phi",0.9,1.4, 0.06,0.05, 0.01,0.001, 0.04,0.05, 510,510);
     hfr->Draw();
     
     hPhi[iType]->Draw("same,p");
     fitPhi->Draw("same");
     fPhiInput->Draw("same");
+    fAcceptanceFunc->Draw("same");
     
     leg = new TLegend(0.20, 0.15, 0.80, 0.45,"","brNDC");
     leg->SetTextSize(0.037);leg->SetBorderSize(0);leg->SetFillStyle(0);
     leg->AddEntry(hPhi[iType],"toy MC","p");
     leg->AddEntry(fPhiInput,Form("input v_{n}'s: %3.2f, %3.2f, %3.2f, %3.2f, %3.2f",inputFlow[0],inputFlow[1],inputFlow[2],inputFlow[3],inputFlow[4]),"l");
+    leg->AddEntry(fAcceptanceFunc,"Acceptance function","l");
     leg->AddEntry(fitPhi,"fit, resulting parameters:","l");
     leg->AddEntry(fitPhi,Form("v_{1} = %4.3f +- %4.3f",fitPhi->GetParameter(1), TMath::Max(0.001,fitPhi->GetParError(1))),"");
     leg->AddEntry(fitPhi,Form("v_{2} = %4.3f +- %4.3f",fitPhi->GetParameter(2), TMath::Max(0.001,fitPhi->GetParError(2))),"");
@@ -623,6 +686,7 @@ void PlotToyFlow(int iType=0, bool bDrawNegRHisto = false, bool bUseWeightning =
     gv2withEP->Draw("same,p");
     gv2withSP->Draw("same,p");
     gv2withRealEP->Draw("same,p");
+    gv2withRealEPTrue->Draw("same,p");
     
     leg = new TLegend(0.20 ,0.70,0.80,0.90,"","brNDC");
     leg->SetTextSize(0.037);leg->SetBorderSize(0);leg->SetFillStyle(0);
@@ -633,6 +697,7 @@ void PlotToyFlow(int iType=0, bool bDrawNegRHisto = false, bool bUseWeightning =
     leg->AddEntry(gv2withEP,"event plane method","p");
     leg->AddEntry(gv2withSP,"scalar product method","p");
     leg->AddEntry(gv2withRealEP,"real event plane method","p");
+    leg->AddEntry(gv2withRealEPTrue,"real event plane method w/ true R","p");
     leg->Draw();
     
     
@@ -657,6 +722,7 @@ void PlotToyFlow(int iType=0, bool bDrawNegRHisto = false, bool bUseWeightning =
     gv2ratioWithEP->Draw("same,p");
     gv2ratioWithSP->Draw("same,p");
     gv2ratioWithRealEP->Draw("same,p");
+    gv2ratioWithRealEPTrue->Draw("same,p");
     lineZero->Draw("same");
     
     leg = new TLegend(0.20 ,0.70,0.80,0.90,"","brNDC");
@@ -667,6 +733,7 @@ void PlotToyFlow(int iType=0, bool bDrawNegRHisto = false, bool bUseWeightning =
     leg->AddEntry(gv2ratioWithEP,"event plane method","p");
     leg->AddEntry(gv2ratioWithSP,"scalar product method","p");
     leg->AddEntry(gv2ratioWithRealEP,"real event plane method","p");
+    leg->AddEntry(gv2ratioWithRealEPTrue,"real event plane method w/ true R","p");
     leg->Draw();
     
 
@@ -759,3 +826,27 @@ void checkUnderOverFlow( TH1 *h ){
         if(h->GetBinContent(0)>0) cout << "vObs underflow bin not empty: " << h->GetBinContent(0) << endl;
         if(h->GetBinContent(h->GetXaxis()->GetNbins()+1)>0) cout << "vObs overflow bin not empty: " << h->GetBinContent(h->GetXaxis()->GetNbins()+1) << endl;
 }
+
+double AcceptanceFunc(double *x, double *p){
+    double phi = x[0];
+    double scaling = p[0];
+    double effA = p[1];
+    double effB = p[2];
+    double detMaxA = p[3];
+    double detMinA = p[4];
+    double detMaxB = p[5];
+    double detMinB = p[6];
+    double value = 0.0;
+    if(isInAcc(phi,detMaxA,detMinA)) {
+        value = scaling*effA/(2.0*TMath::Pi());
+    } else if(isInAcc(phi,detMaxB,detMinB)) {
+        value = scaling*effB/(2.0*TMath::Pi());
+    }
+    return value;
+}
+
+// Test if in det acceptance:
+bool isInAcc(double phi, double detMax, double detMin) {
+    return phi <= detMax && phi > detMin;
+}
+
