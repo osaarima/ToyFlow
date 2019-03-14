@@ -33,6 +33,7 @@ struct Qvalues{
     double Q4;
     double Q6;
     double psi;
+    double vObs;
 };
 
 struct EffValues{
@@ -57,6 +58,7 @@ double AcceptanceFuncSin(double *x, double *p);
 double AcceptanceFuncCos(double *x, double *p);
 bool isInAcc(double phi, double detMax, double detMin);
 double DeltaPhi(double phi1, double phi2);
+double calculatePsi(double Qy, double Qx, double n);
 void efficiencyCalc(EffValues *effValues, int iHarm, double detAMax, double detAMin, double detBMax, double detBMin, double detAEff, double detBEff);
 
 
@@ -313,7 +315,7 @@ void GetDetectorParticles(TClonesArray *listAll,
 
 
 void AnalyzeEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *listSubB, double *truePsi, bool bUseWeightning, bool bCorr, JHistos *histos, EffValues **effValues, int const nHisto){
-    double Qx, QxA, QxB, Qy, QyA, QyB, Q, QA, QB, Q2, Q2A, Q2B, Q4, Q4A, Q4B, Q6, Q6A, Q6B, psi, psiA, psiB, vnSPnominator,vnSPdenominator,vnEPnominator,vnEPdenominator;
+    double Qx, QxA, QxB, Qy, QyA, QyB, Q, QA, QB, Q2, Q2A, Q2B, Q4, Q4A, Q4B, Q6, Q6A, Q6B, psi, psiA, psiB, vObs, vObsA, vObsB, vnSPnominator,vnSPdenominator,vnEPnominator,vnEPdenominator;
     double sqrtSumWeights = 0.0, sqrtSumWeightsA = 0.0, sqrtSumWeightsB = 0.0;
 
     Qvalues *qval = new Qvalues;
@@ -324,13 +326,13 @@ void AnalyzeEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *l
         int n = i+1; // which harmonic
 
         sqrtSumWeights  = CalculateCumulants(listAll, n, bUseWeightning, qval, effValues[n], histos, nHisto, bCorr);
-        Qx = qval->Qx; Qy = qval->Qy; Q = qval->Q; Q2 = qval->Q2; Q4 = qval->Q4; Q6 = qval->Q6; psi = qval->psi;
+        Qx = qval->Qx; Qy = qval->Qy; Q = qval->Q; Q2 = qval->Q2; Q4 = qval->Q4; Q6 = qval->Q6; psi = qval->psi; vObs = qval->vObs;
 
         sqrtSumWeightsA  = CalculateCumulants(listSubA, n, bUseWeightning, qval, effValues[n], histos, nHisto, bCorr);
-        QxA = qval->Qx; QyA = qval->Qy; QA = qval->Q; Q2A = qval->Q2; Q4A = qval->Q4; Q6A = qval->Q6; psiA = qval->psi;
+        QxA = qval->Qx; QyA = qval->Qy; QA = qval->Q; Q2A = qval->Q2; Q4A = qval->Q4; Q6A = qval->Q6; psiA = qval->psi; vObsA = qval->vObs;
 
         sqrtSumWeightsB  = CalculateCumulants(listSubB, n, bUseWeightning, qval, effValues[n], histos, nHisto, bCorr);
-        QxB = qval->Qx; QyB = qval->Qy; QB = qval->Q; Q2B = qval->Q2; Q4B = qval->Q4; Q6B = qval->Q6; psiB = qval->psi;
+        QxB = qval->Qx; QyB = qval->Qy; QB = qval->Q; Q2B = qval->Q2; Q4B = qval->Q4; Q6B = qval->Q6; psiB = qval->psi; vObsB = qval->vObs;
 
         double rSub = TMath::Cos(n*(psiA-psiB));
 
@@ -350,6 +352,7 @@ void AnalyzeEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *l
             histos->hPsiDiffN[nHisto][i][1]->Fill(n*(psiA-psiB));
         }
         histos->hTrueReso[nHisto][i]->Fill(TMath::Cos(n*(psi-truePsi[i]))); //Note: truePsi goes from 0 to 4
+        histos->hvObs[nHisto][i]->Fill(vObs);
 
 
         vnSPnominator = CalculateDotProduct(Qx, Qy, QxA, QyA);
@@ -421,23 +424,32 @@ double CalculateCumulants(TClonesArray *list, int n, bool bUseWeightning, Qvalue
         Qy += weight * yy;
     }
 
+    double helperNormalization = normalization;
     normalization = TMath::Sqrt( normalization );
 
+    double helperQx = Qx; double helperQy = Qy;
     Qx /= normalization; Qy /= normalization;
 
     double Q2 = Qx*Qx + Qy*Qy;
     double Q = TMath::Sqrt( Q2 );
     double Q4 = Q2*Q2;
     double Q6 = Q4*Q2;
-    double psi = TMath::ATan2(Qy,Qx)/((double)n);
-    double vObs;
+
+    double psi = calculatePsi(Qy,Qx,n);
+    double QyMod, QxMod;
+    double vObs = 0.0;
+    double helperPsi = 0.0;
 
     for(int i = 0; i < numberOfTracks; i++){
-
         JToyMCTrack *track = (JToyMCTrack*)list->At(i);
+        weight = CalculateWeight(track, bUseWeightning);
         phi = track->GetPhi();
-        vObs = TMath::Cos(n*(phi-psi));
-        histos->hvObs[nHisto][n-1]->Fill(vObs);
+        xx = weight*TMath::Cos(n*phi);
+        yy = weight*TMath::Sin(n*phi);
+        QxMod = (helperQx-xx)/sqrt(helperNormalization-weight*weight);
+        QyMod = (helperQy-yy)/sqrt(helperNormalization-weight*weight);
+        helperPsi = calculatePsi(QyMod, QxMod ,n); // Remove autocorrelations.
+        vObs += TMath::Cos(n*(phi-helperPsi));
     }
 
     (*qval).Qx = Qx;
@@ -447,6 +459,7 @@ double CalculateCumulants(TClonesArray *list, int n, bool bUseWeightning, Qvalue
     (*qval).Q4 = Q4;
     (*qval).Q6 = Q6;
     (*qval).psi = psi;
+    (*qval).vObs = vObs/((double)numberOfTracks);
 
     return normalization;
 }
@@ -553,6 +566,10 @@ bool isInAcc(double phi, double detMax, double detMin) {
 double DeltaPhi(double phi1, double phi2) {
     double res =  atan2(sin(phi1-phi2), cos(phi1-phi2));
     return res>-TMath::Pi()/3.0 ? res : 2.0*TMath::Pi()+res ; 
+}
+
+double calculatePsi(double Qy, double Qx, double n) {
+    return TMath::ATan2(Qy,Qx)/n;
 }
 
 void efficiencyCalc(EffValues *effValues, int iHarm, double detAMax, double detAMin, double detBMax, double detBMin, double detAEff, double detBEff) {

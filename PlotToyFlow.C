@@ -20,12 +20,12 @@ void checkUnderOverFlow( TH1 *h );
 double AcceptanceFunc(double *x, double *p);
 bool isInAcc(double phi, double detMax, double detMin);
 
-void PlotToyFlow(int iType=1, bool bDrawNegRHisto = false, bool bUseWeightning = false, bool bCheckAllHistos = false, bool bPrintGraphs = false ){
+void PlotToyFlow(int iType=0, bool bDrawNegRHisto = false, bool bUseWeightning = false, bool bCheckAllHistos = false, bool bPrintGraphs = false ){
     int nType = 3;
     
     int iDrawNegRHisto=0;
     if(bDrawNegRHisto) iDrawNegRHisto=1;
-    TString sFileName = "toyFlow_noWeight_randomPsi_dNdeta-1000_nEvents-1000-Test.root";
+    TString sFileName = "toyFlow_noWeight_randomPsi_dNdeta-1500_nEvents-1000-Test.root";
     //TString sFileName = "toyFlow_noWeight_randomPsi_dNdeta-1000_nEvents-100000-TestHistoNames.root";
     TFile *fIn = TFile::Open(sFileName,"read");
     if(fIn==0x0) {
@@ -221,7 +221,7 @@ void PlotToyFlow(int iType=1, bool bDrawNegRHisto = false, bool bUseWeightning =
         hTrueReso[iType][i] = (TH1D*)fIn->Get( Form("hTrueResoT%02iH%02i",iType,i+1) );
         hTrueReso[iType][i]->Scale(1./hTrueReso[iType][i]->GetEntries(),"width");
         hTrueReso[iType][i]->SetMarkerStyle(20);
-        hTrueReso[iType][i]->SetMarkerColor(2);
+        hTrueReso[iType][i]->SetMarkerColor(1);
         hTrueReso[iType][i]->SetMarkerSize(0.8);
         checkUnderOverFlow(hTrueReso[iType][i]);
         
@@ -406,14 +406,15 @@ void PlotToyFlow(int iType=1, bool bDrawNegRHisto = false, bool bUseWeightning =
         meanQ4[i] = hQ4[iType][i]->GetMean(); meanErrorQ4[i] = hQ4[iType][i]->GetMeanError();
         meanQ6[i] = hQ6[iType][i]->GetMean(); meanErrorQ6[i] = hQ6[iType][i]->GetMeanError();
         meanvObs[i] = hvObs[iType][i]->GetMean(); meanErrorvObs[i] = hvObs[iType][i]->GetMeanError();
-        meanrSub[i] = sqrt(hrSub[iType][i]->GetMean()); meanErrorrSub[i] = sqrt(hrSub[iType][i]->GetMeanError());
-        meanrTrue[i] = sqrt(hTrueReso[iType][i]->GetMean()); meanErrorrSub[i] = sqrt(hTrueReso[iType][i]->GetMeanError());
+        meanrSub[i] = sqrt(hrSub[iType][i]->GetMean()); meanErrorrSub[i] = hrSub[iType][i]->GetMeanError()/(2*sqrt(meanrSub[i]));
+        meanrTrue[i] = hTrueReso[iType][i]->GetMean(); meanErrorrTrue[i] = hTrueReso[iType][i]->GetMeanError();
         tryXi=0.001;
         iterDiff=1.0;
+        iterRSub = 0.0;
         while(iterDiff>0.001) {
+            iterRSub = CalculateResolutionKOne(tryXi);
             if(iterRSub < meanrSub[i]) tryXi += 0.01*iterDiff;
             else tryXi -= 0.01*iterDiff;
-            iterRSub = CalculateResolutionKOne(tryXi);
             iterDiff = TMath::Abs(iterRSub - meanrSub[i]);
             prevIterDiff = iterDiff;
         }
@@ -426,11 +427,20 @@ void PlotToyFlow(int iType=1, bool bDrawNegRHisto = false, bool bUseWeightning =
         meanvRealEPTrue[i] = meanvObs[i]/meanrTrue[i];
         meanErrorvRealEPTrue[i] = meanvRealEPTrue[i] * TMath::Sqrt( meanErrorvObs[i]*meanErrorvObs[i]/meanvObs[i]/meanvObs[i] +
                                                                     meanErrorvRealEPTrue[i]*meanErrorvRealEPTrue[i]/meanvRealEPTrue[i]/meanvRealEPTrue[i] ); 
-        //mc(iFig++);
-        //hvObs[iType][i]->Draw();
-        if(hrSub[iType][i]->GetBinContent(0)>0) cout << "rSub underflow bin not empty!" << endl;
         mc(iFig++);
-        hrSub[iType][i]->Draw();
+        TH2F *hfrR = new TH2F(Form("hfr%02d",iFig)," ", 1, -1.1, 1.1, 1, 0.01, hvObs[iType][i]->GetMaximum()+1);
+        myhset( *hfrR, Form("v^{obs}_{%i}",i+1), "Probability",0.9,1.4, 0.06,0.05, 0.01,0.001, 0.04,0.05, 510,510);
+        hfrR->Draw();
+        hvObs[iType][i]->Draw("same");
+        if(hrSub[iType][i]->GetBinContent(0)>0) cout << "rSub underflow bin not empty!" << endl;
+
+        mc(iFig++);
+        hfrR = new TH2F(Form("hfr%02d",iFig)," ", 1, -1.1, 1.1, 1, 0.01, hrSub[iType][i]->GetMaximum()+1);
+        myhset( *hfrR, Form("R_{%i}",i+1), "Probability",0.9,1.4, 0.06,0.05, 0.01,0.001, 0.04,0.05, 510,510);
+        hfrR->Draw();
+        hrSub[iType][i]->Draw("same");
+        hTrueReso[iType][i]->Draw("same");
+
         if(hrSub[iType][i]->GetBinContent(hrSub[iType][i]->GetXaxis()->GetNbins()+1)>0) cout << "rSub overflow bin not empty!" << endl;
         meanSPnom[i] = hSPnominator[iType][i]->GetMean(); meanErrorSPnom[i] = hSPnominator[iType][i]->GetMeanError();
         meanSPdenom[i] = hSPdenominator[iType][i]->GetMean(); meanErrorSPdenom[i] = hSPdenominator[iType][i]->GetMeanError();
@@ -496,6 +506,10 @@ void PlotToyFlow(int iType=1, bool bDrawNegRHisto = false, bool bUseWeightning =
     gv2withSP->SetMarkerStyle(29);
     gv2withSP->SetMarkerColor(6);
     gv2withSP->SetMarkerSize(0.8);
+    TGraphErrors *gv2Obs = new TGraphErrors(nCoef);
+    gv2Obs->SetMarkerStyle(28);
+    gv2Obs->SetMarkerColor(1);
+    gv2Obs->SetMarkerSize(0.8);
     TGraphErrors *gv2withRealEP = new TGraphErrors(nCoef);
     gv2withRealEP->SetMarkerStyle(28);
     gv2withRealEP->SetMarkerColor(7);
@@ -505,18 +519,20 @@ void PlotToyFlow(int iType=1, bool bDrawNegRHisto = false, bool bUseWeightning =
     gv2withRealEPTrue->SetMarkerColor(8);
     gv2withRealEPTrue->SetMarkerSize(0.8);
     for(int i = 0; i < nCoef; i++){
-        gv2with1cumul->SetPoint(i, double(i+1)-0.3, v1cumul[i]);
-        gv2with4cumul->SetPoint(i,double(i+1)-0.2, v4cumul[i]);
-        gv2with6cumul->SetPoint(i,double(i+1)-0.1, v6cumul[i]);
-        gv2withEP->SetPoint(i,double(i+1)+0.0, vEP[i]);
-        gv2withSP->SetPoint(i,double(i+1)+0.1, vSP[i]);
-        gv2withRealEP->SetPoint(i,double(i+1)+0.2, meanvRealEP[i]);
-        gv2withRealEPTrue->SetPoint(i,double(i+1)+0.3, meanvRealEPTrue[i]);
+        gv2with1cumul->SetPoint(i, double(i+1)-0.35, v1cumul[i]);
+        gv2with4cumul->SetPoint(i,double(i+1)-0.25, v4cumul[i]);
+        gv2with6cumul->SetPoint(i,double(i+1)-0.15, v6cumul[i]);
+        gv2withEP->SetPoint(i,double(i+1)-0.05, vEP[i]);
+        gv2withSP->SetPoint(i,double(i+1)+0.05, vSP[i]);
+        gv2Obs->SetPoint(i,double(i+1)+0.15, meanvObs[i]);
+        gv2withRealEP->SetPoint(i,double(i+1)+0.25, meanvRealEP[i]);
+        gv2withRealEPTrue->SetPoint(i,double(i+1)+0.35, meanvRealEPTrue[i]);
         gv2with1cumul->SetPointError(i, 0.0, v1cumulError[i]);
         gv2with4cumul->SetPointError(i, 0.0, v4cumulError[i]);
         gv2with6cumul->SetPointError(i, 0.0, v6cumulError[i]);
         gv2withEP->SetPointError(i, 0.0, vEPError[i]);
         gv2withSP->SetPointError(i, 0.0, vSPError[i]);
+        gv2Obs->SetPointError(i, 0.0, meanErrorvObs[i]);
         gv2withRealEP->SetPointError(i, 0.0, meanErrorvRealEP[i]);
         gv2withRealEPTrue->SetPointError(i, 0.0, meanErrorvRealEPTrue[i]);
     }
@@ -527,6 +543,7 @@ void PlotToyFlow(int iType=1, bool bDrawNegRHisto = false, bool bUseWeightning =
         gv2with6cumul->Print();
         gv2withEP->Print();
         gv2withSP->Print();
+        gv2Obs->Print();
         gv2withRealEP->Print();
         gv2withRealEPTrue->Print();
     }
@@ -551,6 +568,10 @@ void PlotToyFlow(int iType=1, bool bDrawNegRHisto = false, bool bUseWeightning =
     gv2ratioWithSP->SetMarkerStyle(29);
     gv2ratioWithSP->SetMarkerColor(6);
     gv2ratioWithSP->SetMarkerSize(0.8);
+    TGraphErrors *gv2ratioObs = new TGraphErrors(nCoef);
+    gv2ratioObs->SetMarkerStyle(28);
+    gv2ratioObs->SetMarkerColor(1);
+    gv2ratioObs->SetMarkerSize(0.8);
     TGraphErrors *gv2ratioWithRealEP = new TGraphErrors(nCoef);
     gv2ratioWithRealEP->SetMarkerStyle(28);
     gv2ratioWithRealEP->SetMarkerColor(7);
@@ -587,6 +608,11 @@ void PlotToyFlow(int iType=1, bool bDrawNegRHisto = false, bool bUseWeightning =
         ey = gv2withSP->GetErrorY(i);
         gv2ratioWithSP->SetPoint(i, x, y - in );
         gv2ratioWithSP->SetPointError(i, 0.0, ey );
+
+        gv2Obs->GetPoint(i, x, y );
+        ey = gv2Obs->GetErrorY(i);
+        gv2ratioObs->SetPoint(i, x, y - in );
+        gv2ratioObs->SetPointError(i, 0.0, ey );
 
         gv2withRealEP->GetPoint(i, x, y );
         ey = gv2withRealEP->GetErrorY(i);
@@ -685,6 +711,7 @@ void PlotToyFlow(int iType=1, bool bDrawNegRHisto = false, bool bUseWeightning =
     gv2with6cumul->Draw("same,p");
     gv2withEP->Draw("same,p");
     gv2withSP->Draw("same,p");
+    gv2Obs->Draw("same,p");
     gv2withRealEP->Draw("same,p");
     gv2withRealEPTrue->Draw("same,p");
     
@@ -696,6 +723,7 @@ void PlotToyFlow(int iType=1, bool bDrawNegRHisto = false, bool bUseWeightning =
     leg->AddEntry(gv2with6cumul,"6-ple cumulants","p");
     leg->AddEntry(gv2withEP,"event plane method","p");
     leg->AddEntry(gv2withSP,"scalar product method","p");
+    leg->AddEntry(gv2Obs,"real event plane method, v_{obs}","p");
     leg->AddEntry(gv2withRealEP,"real event plane method","p");
     leg->AddEntry(gv2withRealEPTrue,"real event plane method w/ true R","p");
     leg->Draw();
@@ -721,6 +749,7 @@ void PlotToyFlow(int iType=1, bool bDrawNegRHisto = false, bool bUseWeightning =
     gv2ratioWith6cumul->Draw("same,p");
     gv2ratioWithEP->Draw("same,p");
     gv2ratioWithSP->Draw("same,p");
+    gv2ratioObs->Draw("same,p");
     gv2ratioWithRealEP->Draw("same,p");
     gv2ratioWithRealEPTrue->Draw("same,p");
     lineZero->Draw("same");
@@ -732,6 +761,7 @@ void PlotToyFlow(int iType=1, bool bDrawNegRHisto = false, bool bUseWeightning =
     leg->AddEntry(gv2ratioWith6cumul,"6-ple cumulants","p");
     leg->AddEntry(gv2ratioWithEP,"event plane method","p");
     leg->AddEntry(gv2ratioWithSP,"scalar product method","p");
+    leg->AddEntry(gv2ratioObs,"real event plane method, v_{obs}","p");
     leg->AddEntry(gv2ratioWithRealEP,"real event plane method","p");
     leg->AddEntry(gv2ratioWithRealEPTrue,"real event plane method w/ true R","p");
     leg->Draw();
@@ -823,8 +853,8 @@ double CalculateResolutionKOne( double Xi ){
 }
 
 void checkUnderOverFlow( TH1 *h ){
-        if(h->GetBinContent(0)>0) cout << "vObs underflow bin not empty: " << h->GetBinContent(0) << endl;
-        if(h->GetBinContent(h->GetXaxis()->GetNbins()+1)>0) cout << "vObs overflow bin not empty: " << h->GetBinContent(h->GetXaxis()->GetNbins()+1) << endl;
+        if(h->GetBinContent(0)>0) cout << h->GetName() << " underflow bin not empty: " << h->GetBinContent(0) << endl;
+        if(h->GetBinContent(h->GetXaxis()->GetNbins()+1)>0) cout << h->GetName() << " overflow bin not empty: " << h->GetBinContent(h->GetXaxis()->GetNbins()+1) << endl;
 }
 
 double AcceptanceFunc(double *x, double *p){
