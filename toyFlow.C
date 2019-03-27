@@ -45,13 +45,15 @@ struct EffValues{
     double a2nMinus;
 };
 
-void GetEvent(TClonesArray *allHadrons, TClonesArray *subEventA, TClonesArray *subEventB, TRandom3 *rand, TF1 *fPt, TF1 *fPhi, int nMulti, JHistos *histos);
+void GetEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *listSubB, TClonesArray **listAllPtBins, int nPtBins, TRandom3 *rand, TF1 *fPt, TF1 *fPhi, int nMult, JHistos *histos, bool bv2PtDep);
 void GetDetectorParticles(TClonesArray *listAll, TClonesArray *listAllDet, TClonesArray *listSubADet, TClonesArray *listSubBDet, double detAMax, double detAMin, double detBMax, double detBMin, double detAEff, double detBEff, TRandom3 *rand, JHistos *histos);
-void AnalyzeEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *listSubB, double *truePsi, bool bUseWeightning, bool bCorr, JHistos *histos, EffValues **effValues, int const nHisto);
+void AnalyzeEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *listSubB, TClonesArray **listAllPtBins, double *truePsi, bool bUseWeightning, bool bCorr, JHistos *histos, EffValues **effValues, int const nHisto);
 double CalculateCumulants(TClonesArray *list, int n, bool bUseWeightning, Qvalues *qval, EffValues *effValues, JHistos *histos, int const nHisto, bool bCorr);
 double CalculateWeight(JToyMCTrack *track, bool bUseWeightning);
 double CalculateDotProduct(double ax, double ay, double bx, double by);
 double SingleParticlePt(double *x, double *para);
+double v2PtDependence(double *x, double *p);
+double v2PtDependenceFun(double pT, double pTmax, double alpha);
 double SingleParticlePhi(double *x, double *para);
 double AcceptanceFunc(double *x, double *p);
 double AcceptanceFuncSin(double *x, double *p);
@@ -60,6 +62,7 @@ bool isInAcc(double phi, double detMax, double detMin);
 double DeltaPhi(double phi1, double phi2);
 double calculatePsi(double Qy, double Qx, double n);
 void efficiencyCalc(EffValues *effValues, int iHarm, double detAMax, double detAMin, double detBMax, double detBMin, double detAEff, double detBEff);
+int getPtBin(double pT);
 
 
 
@@ -70,7 +73,9 @@ int main(int argc, char **argv) {
 	
     const int nEvents = argc>1 ? atoi(argv[1]) : 100;
     const double dNdeta = argc>2 ? atoi(argv[2]) : 1000;
-    TString sFileText = argc>3 ? argv[3] : "Test";
+    const double usePtDep = argc>3 ? atoi(argv[3]) : 0;
+    const double useWeighting = argc>4 ? atoi(argv[4]) : 0;
+    TString sFileText = argc>5 ? argv[5] : "Test";
     
     const double etaRange = 0.8;
     
@@ -78,6 +83,7 @@ int main(int argc, char **argv) {
     cout << "nEvents = " << nEvents << ", dNdeta = " << dNdeta << " and total multiplicity = " << nMult << endl;
     
     const int nHarmonics = 5;
+    const int nPtBins = 10;
     const double vn[nHarmonics] = {0.0, 0.15, 0.08, 0.03, 0.01}; // Peripheral
     //const double vn[nHarmonics] = {0.0, 0.01, 0.00, 0.00, 0.00}; // Very central
     
@@ -91,7 +97,11 @@ int main(int argc, char **argv) {
 
     
     bool bRandomPsi = true;
-    bool bUseWeightning = false;
+    bool bUseWeightning = useWeighting;
+    bool bv2PtDep = usePtDep;
+    cout << "bRandomPsi=" << bRandomPsi << ", bUseWeightning=" << bUseWeightning << ", bv2PtDep=" << bv2PtDep << endl;
+    double alpha = 2.0;
+    double defpTMax = 2.0;
     double const pi = TMath::Pi();
     
 	TStopwatch timer;
@@ -105,7 +115,11 @@ int main(int argc, char **argv) {
     if(bRandomPsi) sRandomPsi="randomPsi";
     else sRandomPsi="noRandomPsi";
 	
-    TString outFileName = Form("toyFlow_%s_%s_dNdeta-%.0f_nEvents-%d-%s.root",sUseWeightning.Data(),sRandomPsi.Data(),dNdeta,nEvents,sFileText.Data());
+    TString sv2PtDep;
+    if(bv2PtDep) sv2PtDep="ptDep";
+    else sv2PtDep="noptDep";
+	
+    TString outFileName = Form("toyFlow_%s_%s_%s_dNdeta-%.0f_nEvents-%d-%s.root",sUseWeightning.Data(),sRandomPsi.Data(),sv2PtDep.Data(),dNdeta,nEvents,sFileText.Data());
 	TFile *fOut = TFile::Open( outFileName, "RECREATE" );
 	
 	TRandom3 *randomGenerator = new TRandom3();
@@ -120,8 +134,10 @@ int main(int argc, char **argv) {
     TF1 *fPtDistribution = new TF1("fPtDistribution", SingleParticlePt, 0.0, 10.0, 1);
     fPtDistribution->SetParameter(0,1./Teff);
     
-    TF1 *fPhiDistribution = new TF1("fPhiDistribution", SingleParticlePhi, -pi, pi, 10);
-    fPhiDistribution->SetParameters(vn[0], vn[1], vn[2], vn[3], vn[4], Psi[0], Psi[1], Psi[2], Psi[3], Psi[4]);
+    TF1 *fPhiDistribution = new TF1("fPhiDistribution", SingleParticlePhi, -pi, pi, 13);
+    fPhiDistribution->SetParameters(vn[0], vn[1], vn[2], vn[3], vn[4], Psi[0], Psi[1], Psi[2], Psi[3], Psi[4], defpTMax);
+    fPhiDistribution->SetParameter(12,alpha);
+    fPhiDistribution->SetParameter(13,defpTMax);
     
 	TClonesArray *allHadrons = new TClonesArray("JToyMCTrack", nMult+1);
     TClonesArray *subEventA = new TClonesArray("JToyMCTrack", nMult+1);
@@ -129,9 +145,14 @@ int main(int argc, char **argv) {
 	TClonesArray *allHadronsDet = new TClonesArray("JToyMCTrack", nMult+1);
     TClonesArray *subEventDetA = new TClonesArray("JToyMCTrack", nMult+1);
     TClonesArray *subEventDetB = new TClonesArray("JToyMCTrack", nMult+1);
+
+	TClonesArray *allHadronsPtBins[nPtBins];
+    for(int iPtBin=0;iPtBin<nPtBins;iPtBin++) {
+        allHadronsPtBins[iPtBin] = new TClonesArray("JToyMCTrack", nMult+1);
+    }
 	
     // save input numbers
-    TH1D *hInputNumbers = new TH1D("hInputNumbers","hInputNumbers",19, 0.5, 19.5);
+    TH1D *hInputNumbers = new TH1D("hInputNumbers","hInputNumbers",21, 0.5, 21.5);
     hInputNumbers->Fill(1, double(nEvents));
     hInputNumbers->Fill(2, double(dNdeta));
     hInputNumbers->Fill(3, etaRange);
@@ -151,6 +172,8 @@ int main(int argc, char **argv) {
     hInputNumbers->Fill(17, detBMin);
     hInputNumbers->Fill(18, detAEff);
     hInputNumbers->Fill(19, detBEff);
+    hInputNumbers->Fill(20, alpha);
+    hInputNumbers->Fill(21, defpTMax);
 
     // Calculate efficiency related values
     EffValues *effValues[nHarmonics+1];
@@ -177,21 +200,27 @@ int main(int argc, char **argv) {
         allHadronsDet->Clear("C");
         subEventDetA->Clear("C");
         subEventDetB->Clear("C");
+
+        for(int iPtBin=0;iPtBin<nPtBins;iPtBin++) {
+            allHadronsPtBins[iPtBin]->Clear("C");
+        }
         
         if(bRandomPsi){
             for(int j = 0; j < 5; j++){
-                Psi[j] = randomGenerator->Uniform(-pi,pi);
+                Psi[j] = randomGenerator->Uniform(-pi,pi); // Should be pi/n_harmonic ?
             }
-            fPhiDistribution->SetParameters(vn[0], vn[1], vn[2], vn[3], vn[4], Psi[0], Psi[1], Psi[2], Psi[3], Psi[4]);
+            fPhiDistribution->SetParameters(vn[0], vn[1], vn[2], vn[3], vn[4], Psi[0], Psi[1], Psi[2], Psi[3], Psi[4], defpTMax);
+            fPhiDistribution->SetParameter(12,alpha);
+            fPhiDistribution->SetParameter(13,defpTMax);
         }
         
-        GetEvent(allHadrons, subEventA, subEventB, randomGenerator, fPtDistribution, fPhiDistribution, nMult, histos);
+        GetEvent(allHadrons, subEventA, subEventB, allHadronsPtBins, nPtBins, randomGenerator, fPtDistribution, fPhiDistribution, nMult, histos, bv2PtDep);
         GetDetectorParticles(allHadrons, allHadronsDet, subEventDetA, subEventDetB, 
                              detAMax, detAMin, detBMax, detBMin, detAEff, detBEff,
                              randomGenerator, histos);
-        AnalyzeEvent(allHadrons, subEventA, subEventB, Psi, bUseWeightning, false, histos, effValues, 0); //True MC
-        AnalyzeEvent(allHadronsDet, subEventDetA, subEventDetB, Psi, bUseWeightning, false, histos, effValues, 1); //Detector, no corr
-        AnalyzeEvent(allHadronsDet, subEventDetA, subEventDetB, Psi, bUseWeightning, true, histos, effValues, 2); //Detector, corr
+        AnalyzeEvent(allHadrons, subEventA, subEventB, allHadronsPtBins, Psi, bUseWeightning, false, histos, effValues, 0); //True MC
+        AnalyzeEvent(allHadronsDet, subEventDetA, subEventDetB, allHadronsPtBins, Psi, bUseWeightning, false, histos, effValues, 1); //Detector, no corr
+        AnalyzeEvent(allHadronsDet, subEventDetA, subEventDetB, allHadronsPtBins, Psi, bUseWeightning, true, histos, effValues, 2); //Detector, corr
     }
                                     
 	fOut->Write();
@@ -203,17 +232,19 @@ int main(int argc, char **argv) {
                                     
 // ============== END MAIN PROGRAM
 
-void GetEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *listSubB, TRandom3 *rand, TF1 *fPt, TF1 *fPhi, int nMult, JHistos *histos){
+void GetEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *listSubB, TClonesArray **listAllPtBins, int nPtBins, TRandom3 *rand, TF1 *fPt, TF1 *fPhi, int nMult, JHistos *histos, bool bv2PtDep){
     
     histos->hMultiplicity[0]->Fill(1.*nMult);
     
     JToyMCTrack track;
     TLorentzVector lVec;
+    int iTrack[nPtBins] = {0};
 
     int nSub = int( nMult/2.0 );
     
     for(int i = 0; i < nMult; i++){
         double pT = fPt->GetRandom();
+        if(bv2PtDep) fPhi->SetParameter(10,pT);
         double phi = fPhi->GetRandom();
         double eta = rand->Uniform(-0.8,0.8);
         
@@ -234,6 +265,9 @@ void GetEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *listS
         } else {
             new((*listSubB)[i-nSub]) JToyMCTrack( track );
         }
+
+        int nPtBin = getPtBin(pT);
+        new((*listAllPtBins[nPtBin])[iTrack[nPtBin]++]) JToyMCTrack( track );
     }
     return;
 }
@@ -314,7 +348,7 @@ void GetDetectorParticles(TClonesArray *listAll,
 
 
 
-void AnalyzeEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *listSubB, double *truePsi, bool bUseWeightning, bool bCorr, JHistos *histos, EffValues **effValues, int const nHisto){
+void AnalyzeEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *listSubB, TClonesArray **listAllPtBins, double *truePsi, bool bUseWeightning, bool bCorr, JHistos *histos, EffValues **effValues, int const nHisto){
     double Qx, QxA, QxB, Qy, QyA, QyB, Q, QA, QB, Q2, Q2A, Q2B, Q4, Q4A, Q4B, Q6, Q6A, Q6B, psi, psiA, psiB, vObs, vObsA, vObsB, vnSPnominator,vnSPdenominator,vnEPnominator,vnEPdenominator;
     double sqrtSumWeights = 0.0, sqrtSumWeightsA = 0.0, sqrtSumWeightsB = 0.0;
 
@@ -365,6 +399,17 @@ void AnalyzeEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *l
         histos->hSPdenominator[nHisto][i]->Fill(vnSPdenominator);
         histos->hEPnominator[nHisto][i]->Fill(vnEPnominator);
         histos->hEPdenominator[nHisto][i]->Fill(vnEPdenominator);
+
+        if(nHisto==0) { //Look only trueMC for now.
+            for(int iPtBin=0;iPtBin<10;iPtBin++) {
+                if(listAllPtBins[iPtBin]->GetEntriesFast()<3) continue; // If less than 2 particles, vObs will be nan.
+                sqrtSumWeights  = CalculateCumulants(listAllPtBins[iPtBin], n, bUseWeightning, qval, effValues[n], histos, nHisto, bCorr);
+                psi = qval->psi; vObs = qval->vObs;
+                //cout << "n=" << n <<", iPtBin=" << iPtBin << ", psi=" << psi << ", vObs=" << vObs << endl;
+                histos->hTrueResoPtBins[nHisto][i][iPtBin]->Fill(TMath::Cos(n*(psi-truePsi[i]))); //Note: truePsi goes from 0 to 4
+                histos->hvObsPtBins[nHisto][i][iPtBin]->Fill(vObs);
+            }
+        }
     }
 
     histos->hSqrtSumWeights[nHisto]->Fill( sqrtSumWeights );
@@ -379,6 +424,7 @@ void AnalyzeEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *l
 double CalculateCumulants(TClonesArray *list, int n, bool bUseWeightning, Qvalues *qval, EffValues *effValues, JHistos *histos, int const nHisto, bool bCorr){
 
     int numberOfTracks = list->GetEntriesFast();
+    //cout << "numberOfTracks=" << numberOfTracks << endl;
 
     double normalization = 0.0;
     double Qx = 0.0, Qy = 0.0;
@@ -395,7 +441,7 @@ double CalculateCumulants(TClonesArray *list, int n, bool bUseWeightning, Qvalue
         JToyMCTrack *track = (JToyMCTrack*)list->At(i);
 
         weight = CalculateWeight(track, bUseWeightning);
-        normalization += weight * weight;
+        normalization += weight*weight;
 
         phi = track->GetPhi();
 
@@ -415,8 +461,6 @@ double CalculateCumulants(TClonesArray *list, int n, bool bUseWeightning, Qvalue
             //Rescaling
             xx = QxPPrime / effValues->a2nPlus;
             yy = QyPPrime / effValues->a2nMinus;
-
-            // How about autocorrelation? Flow lecture p 15.
         }
 
 
@@ -482,20 +526,28 @@ double SingleParticlePt(double *x, double *p){
     return TMath::Exp(-slope*pT);
 }
 
-double SingleParticlePhi(double *x, double *p){
-    double phi = x[0];
-    double v1  = p[0];
-    double v2  = p[1];
-    double v3  = p[2];
-    double v4  = p[3];
-    double v5  = p[4];
-    double Psi1 = p[5];
-    double Psi2 = p[6];
-    double Psi3 = p[7];
-    double Psi4 = p[8];
-    double Psi5 = p[9];
+// This is just a lookalike model, not based on any hard evidence or model.
+double v2PtDependenceFun(double pT, double pTmax, double alpha){
+    return TMath::Power(pT/pTmax,alpha)*TMath::Exp(-alpha*(pT/pTmax - 1.0));
+}
 
-    return 1.0 + 2.*v1*TMath::Cos(phi-Psi1) + 2.*v2*TMath::Cos(2.*(phi-Psi2))
+double SingleParticlePhi(double *x, double *p){
+    double phi   = x[0];
+    double v1    = p[0];
+    double v2max = p[1];
+    double v3    = p[2];
+    double v4    = p[3];
+    double v5    = p[4];
+    double Psi1  = p[5];
+    double Psi2  = p[6];
+    double Psi3  = p[7];
+    double Psi4  = p[8];
+    double Psi5  = p[9];
+    double pT    = p[10];
+    double alpha = p[11];
+    double pTmax = p[12];
+
+    return 1.0 + 2.*v1*TMath::Cos(phi-Psi1) + 2.*v2max*v2PtDependenceFun(pT,pTmax,alpha)*TMath::Cos(2.*(phi-Psi2))
         + 2.*v3*TMath::Cos(3.*(phi-Psi3)) + 2.*v4*TMath::Cos(4.*(phi-Psi4))
         + 2.*v5*TMath::Cos(5.*(phi-Psi5));
 }
@@ -669,5 +721,14 @@ void efficiencyCalc(EffValues *effValues, int iHarm, double detAMax, double detA
     cout << "lambda2nSMinus = " << lambda2nSMinus << ", lambda2nSPlus = " << lambda2nSPlus << endl;
     cout << "a2nPlus        = " << a2nPlus <<        ", a2nMinus      = " << a2nMinus << endl;
     
+}
+
+int getPtBin(double pT) {
+    double const ptBins[11] = {0.0,0.2,0.6,1.0,1.5,1.8,2.2,2.8,3.5,4.5,6.0};
+    int nBin;
+    for(int iPtBin=0;iPtBin<10;iPtBin++) {
+        if(pT>ptBins[iPtBin] && pT<ptBins[iPtBin+1]) nBin = iPtBin;
+    }
+    return nBin;
 }
 

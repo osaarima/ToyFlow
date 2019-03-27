@@ -10,8 +10,10 @@
 #include "JHistos.h"
 #include "TMath.h"
 
+
 JHistos::JHistos(){
 
+    double const ptBins[11] = {0.0,0.2,0.6,1.0,1.5,1.8,2.2,2.8,3.5,4.5,6.0};
     // If you change this, remember to change the numbers in JHistos.h also as that was left alone.
     int const static nRuns = 3; //0: detector, 1: detector without corrections, 2: detector with corrections
     TString sType[nRuns] = {"True", "DetWoCorr","DetWCorr"};
@@ -62,6 +64,10 @@ JHistos::JHistos(){
                 hPsiDiffN[iType][i][j] = new TH1D(Form("hPsiDiffNT%02iH%02iE%02i",iType,i+1,j),Form("hPsiDiffN%s%02i%02i",sType[iType].Data(),i+1,j),200, -4.0*TMath::Pi(), 4.0*TMath::Pi()); hPsiDiffN[iType][i][j]->Sumw2();
             }
             hTrueReso[iType][i] = new TH1D(Form("hTrueResoT%02iH%02i",iType,i+1),Form("hTrueResoT%s%02i",sType[iType].Data(),i+1),200, -1.0, 1.0); hTrueReso[iType][i]->Sumw2();
+            for(int iPtBin=0;iPtBin<10;iPtBin++) {
+                hvObsPtBins[iType][i][iPtBin] = new TH1D(Form("hvObsPtBinsT%02iH%02iPtB%02i",iType,i+1,iPtBin),Form("hvObs%s%02i %.1f - %.1f",sType[iType].Data(),i+1,ptBins[iPtBin],ptBins[iPtBin+1]),100, -1.0, 1.0); hvObsPtBins[iType][i][iPtBin]->Sumw2();
+                hTrueResoPtBins[iType][i][iPtBin] = new TH1D(Form("hTrueResoPtBinsT%02iH%02iPtB%02i",iType,i+1,iPtBin),Form("hTrueResoPtBinsT%s%02i %.1f - %.1f",sType[iType].Data(),i+1,ptBins[iPtBin],ptBins[iPtBin+1]),200, -1.0, 1.0); hTrueResoPtBins[iType][i][iPtBin]->Sumw2();
+            }
             hSPnominator[iType][i] = new TH1D(Form("hSPnominatorVT%02iH%02i",iType,i+1),Form("hSPnominatorV%s%02i",sType[iType].Data(),i+1),binsQ, LogQ2BinsX); hSPnominator[iType][i]->Sumw2();
             hSPdenominator[iType][i] = new TH1D(Form("hSPdenominatorVT%02iH%02i",iType,i+1),Form("hSPdenominatorV%s%02i",sType[iType].Data(),i+1),binsQ, LogQ2BinsX); hSPdenominator[iType][i]->Sumw2();
             hEPnominator[iType][i] = new TH1D(Form("hEPnominatorVT%02iH%02i",iType,i+1),Form("hEPnominatorV%s%02i",sType[iType].Data(),i+1),400,0.0,20.0); hEPnominator[iType][i]->Sumw2();

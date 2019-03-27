@@ -29,11 +29,13 @@ public:
     TH1D *hQ4[3][5];
     TH1D *hQ6[3][5];
     TH1D *hvObs[3][5];
+    TH1D *hvObsPtBins[3][5][10];
     TH1D *hrSub[3][5];
     TH2D *hPsiAB[3][5][2];
     TH1D *hPsiDiff[3][5][2];
     TH1D *hPsiDiffN[3][5][2];
     TH1D *hTrueReso[3][5];
+    TH1D *hTrueResoPtBins[3][5][10];
     TH1D *hSPnominator[3][5];
     TH1D *hSPdenominator[3][5];
     TH1D *hEPnominator[3][5];
