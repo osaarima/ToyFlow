@@ -76,6 +76,7 @@ int main(int argc, char **argv) {
     const double usePtDep = argc>3 ? atoi(argv[3]) : 0;
     const double useWeighting = argc>4 ? atoi(argv[4]) : 0;
     TString sFileText = argc>5 ? argv[5] : "Test";
+    const int seed = argc>6 ? atoi(argv[6]) : 1000;
     
     const double etaRange = 0.8;
     
@@ -122,7 +123,7 @@ int main(int argc, char **argv) {
     TString outFileName = Form("toyFlow_%s_%s_%s_dNdeta-%.0f_nEvents-%d-%s.root",sUseWeightning.Data(),sRandomPsi.Data(),sv2PtDep.Data(),dNdeta,nEvents,sFileText.Data());
 	TFile *fOut = TFile::Open( outFileName, "RECREATE" );
 	
-	TRandom3 *randomGenerator = new TRandom3();
+	TRandom3 *randomGenerator = new TRandom3(seed);
 	JHistos *histos = new JHistos();
     
     double Psi[nHarmonics] = {0};
