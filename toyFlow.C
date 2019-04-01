@@ -135,9 +135,8 @@ int main(int argc, char **argv) {
     fPtDistribution->SetParameter(0,1./Teff);
     
     TF1 *fPhiDistribution = new TF1("fPhiDistribution", SingleParticlePhi, -pi, pi, 13);
-    fPhiDistribution->SetParameters(vn[0], vn[1], vn[2], vn[3], vn[4], Psi[0], Psi[1], Psi[2], Psi[3], Psi[4], defpTMax);
-    fPhiDistribution->SetParameter(12,alpha);
-    fPhiDistribution->SetParameter(13,defpTMax);
+    double params[13] = {vn[0], vn[1], vn[2], vn[3], vn[4], Psi[0], Psi[1], Psi[2], Psi[3], Psi[4], defpTMax,alpha,defpTMax};
+    fPhiDistribution->SetParameters(params);
     
 	TClonesArray *allHadrons = new TClonesArray("JToyMCTrack", nMult+1);
     TClonesArray *subEventA = new TClonesArray("JToyMCTrack", nMult+1);
@@ -208,10 +207,9 @@ int main(int argc, char **argv) {
         if(bRandomPsi){
             for(int j = 0; j < 5; j++){
                 Psi[j] = randomGenerator->Uniform(-pi,pi); // Should be pi/n_harmonic ?
+                params[5+j] = Psi[j];
             }
-            fPhiDistribution->SetParameters(vn[0], vn[1], vn[2], vn[3], vn[4], Psi[0], Psi[1], Psi[2], Psi[3], Psi[4], defpTMax);
-            fPhiDistribution->SetParameter(12,alpha);
-            fPhiDistribution->SetParameter(13,defpTMax);
+            fPhiDistribution->SetParameters(params);
         }
         
         GetEvent(allHadrons, subEventA, subEventB, allHadronsPtBins, nPtBins, randomGenerator, fPtDistribution, fPhiDistribution, nMult, histos, bv2PtDep);
