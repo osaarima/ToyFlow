@@ -34,7 +34,8 @@ void PlotToyFlow(int iType=0, bool bDrawNegRHisto = false, bool bUseWeightning =
     //TString sFileName = "toyFlow_weight_randomPsi_noptDep_dNdeta-1000_nEvents-1000-Test.root";
     //TString sFileName = "toyFlow_noWeight_randomPsi_noptDep_dNdeta-1000_nEvents-1000-Test.root";
     //TString sFileName = "toyFlow_noWeight_randomPsi_noptDep_dNdeta-1000_nEvents-1000-ptbinkokeilu.root";
-    TString sFileName = "toyFlow_noWeight_randomPsi_ptDep_dNdeta-1000_nEvents-300-overflowTest.root";
+    //TString sFileName = "toyFlow_noWeight_randomPsi_ptDep_dNdeta-1000_nEvents-300-overflowTest.root";
+    TString sFileName = "toyFlow_noWeight_randomPsi_ptDep_dNdeta-1000_nEvents-100-newPtDepTest.root";
     //run1
     //TString sFileName = "toyFlow_noWeight_randomPsi_noptDep_dNdeta-1000_nEvents-100000-run1.root";
     //TString sFileName = "toyFlow_weight_randomPsi_noptDep_dNdeta-1000_nEvents-100000-run1.root";

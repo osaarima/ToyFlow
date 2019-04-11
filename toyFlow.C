@@ -34,6 +34,9 @@ struct Qvalues{
     double Q6;
     double psi;
     double vObs;
+    double QxwoNorm;
+    double QywoNorm;
+    double normSq;
 };
 
 struct EffValues{
@@ -45,7 +48,7 @@ struct EffValues{
     double a2nMinus;
 };
 
-void GetEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *listSubB, TClonesArray **listAllPtBins, int nPtBins, TRandom3 *rand, TF1 *fPt, TF1 *fPhi, int nMult, JHistos *histos, bool bv2PtDep);
+void GetEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *listSubB, TClonesArray **listAllPtBins, int nPtBins, double const *ptBins, TRandom3 *rand, TF1 *fPt, TF1 *fPhi, int nMult, JHistos *histos, bool bv2PtDep);
 void GetDetectorParticles(TClonesArray *listAll, TClonesArray *listAllDet, TClonesArray *listSubADet, TClonesArray *listSubBDet, double detAMax, double detAMin, double detBMax, double detBMin, double detAEff, double detBEff, TRandom3 *rand, JHistos *histos);
 void AnalyzeEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *listSubB, TClonesArray **listAllPtBins, double *truePsi, bool bUseWeightning, bool bCorr, JHistos *histos, EffValues **effValues, int const nHisto);
 double CalculateCumulants(TClonesArray *list, int n, bool bUseWeightning, Qvalues *qval, EffValues *effValues, JHistos *histos, int const nHisto, bool bCorr);
@@ -61,8 +64,9 @@ double AcceptanceFuncCos(double *x, double *p);
 bool isInAcc(double phi, double detMax, double detMin);
 double DeltaPhi(double phi1, double phi2);
 double calculatePsi(double Qy, double Qx, double n);
+double vObsCalculation(TClonesArray *list, bool bUseWeightning, int n, double QxwoNorm, double QywoNorm, double normSq);
 void efficiencyCalc(EffValues *effValues, int iHarm, double detAMax, double detAMin, double detBMax, double detBMin, double detAEff, double detBEff);
-int getPtBin(double pT);
+int getBin(double pT, double const *bins);
 
 
 
@@ -87,6 +91,7 @@ int main(int argc, char **argv) {
     const int nPtBins = 10;
     const double vn[nHarmonics] = {0.0, 0.15, 0.08, 0.03, 0.01}; // Peripheral
     //const double vn[nHarmonics] = {0.0, 0.01, 0.00, 0.00, 0.00}; // Very central
+    double const ptBins[11] = {0.0,0.2,0.6,1.0,1.5,1.8,2.2,2.8,3.5,4.5,6.0};
     
     // Effieciency
     //double const detAMax = 2.0*TMath::Pi()/3.0, detAMin = TMath::Pi()/3.0;
@@ -213,7 +218,7 @@ int main(int argc, char **argv) {
             fPhiDistribution->SetParameters(params);
         }
         
-        GetEvent(allHadrons, subEventA, subEventB, allHadronsPtBins, nPtBins, randomGenerator, fPtDistribution, fPhiDistribution, nMult, histos, bv2PtDep);
+        GetEvent(allHadrons, subEventA, subEventB, allHadronsPtBins, nPtBins, ptBins, randomGenerator, fPtDistribution, fPhiDistribution, nMult, histos, bv2PtDep);
         GetDetectorParticles(allHadrons, allHadronsDet, subEventDetA, subEventDetB, 
                              detAMax, detAMin, detBMax, detBMin, detAEff, detBEff,
                              randomGenerator, histos);
@@ -231,7 +236,7 @@ int main(int argc, char **argv) {
                                     
 // ============== END MAIN PROGRAM
 
-void GetEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *listSubB, TClonesArray **listAllPtBins, int nPtBins, TRandom3 *rand, TF1 *fPt, TF1 *fPhi, int nMult, JHistos *histos, bool bv2PtDep){
+void GetEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *listSubB, TClonesArray **listAllPtBins, int nPtBins, double const *ptBins, TRandom3 *rand, TF1 *fPt, TF1 *fPhi, int nMult, JHistos *histos, bool bv2PtDep){
     
     histos->hMultiplicity[0]->Fill(1.*nMult);
     
@@ -265,8 +270,8 @@ void GetEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *listS
             new((*listSubB)[i-nSub]) JToyMCTrack( track );
         }
 
-        int nPtBin = getPtBin(pT);
-        new((*listAllPtBins[nPtBin])[iTrack[nPtBin]++]) JToyMCTrack( track );
+        int nPtBin = getBin(pT, ptBins);
+        if(nPtBin>=0) new((*listAllPtBins[nPtBin])[iTrack[nPtBin]++]) JToyMCTrack( track );
     }
     return;
 }
@@ -348,7 +353,7 @@ void GetDetectorParticles(TClonesArray *listAll,
 
 
 void AnalyzeEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *listSubB, TClonesArray **listAllPtBins, double *truePsi, bool bUseWeightning, bool bCorr, JHistos *histos, EffValues **effValues, int const nHisto){
-    double Qx, QxA, QxB, Qy, QyA, QyB, Q, QA, QB, Q2, Q2A, Q2B, Q4, Q4A, Q4B, Q6, Q6A, Q6B, psi, psiA, psiB, vObs, vObsA, vObsB, vnSPnominator,vnSPdenominator,vnEPnominator,vnEPdenominator;
+    double Qx, QxA, QxB, Qy, QyA, QyB, Q, QA, QB, Q2, Q2A, Q2B, Q4, Q4A, Q4B, Q6, Q6A, Q6B, psi, psiA, psiB, vObs, vObsA, vObsB, vnSPnominator,vnSPdenominator,vnEPnominator,vnEPdenominator, QxwoNorm, QywoNorm, normSq;
     double sqrtSumWeights = 0.0, sqrtSumWeightsA = 0.0, sqrtSumWeightsB = 0.0;
 
     Qvalues *qval = new Qvalues;
@@ -360,6 +365,9 @@ void AnalyzeEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *l
 
         sqrtSumWeights  = CalculateCumulants(listAll, n, bUseWeightning, qval, effValues[n], histos, nHisto, bCorr);
         Qx = qval->Qx; Qy = qval->Qy; Q = qval->Q; Q2 = qval->Q2; Q4 = qval->Q4; Q6 = qval->Q6; psi = qval->psi; vObs = qval->vObs;
+        QxwoNorm = qval->QxwoNorm;
+        QywoNorm = qval->QywoNorm;
+        normSq   = qval->normSq;
 
         sqrtSumWeightsA  = CalculateCumulants(listSubA, n, bUseWeightning, qval, effValues[n], histos, nHisto, bCorr);
         QxA = qval->Qx; QyA = qval->Qy; QA = qval->Q; Q2A = qval->Q2; Q4A = qval->Q4; Q6A = qval->Q6; psiA = qval->psi; vObsA = qval->vObs;
@@ -384,7 +392,8 @@ void AnalyzeEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *l
             histos->hPsiDiff[nHisto][i][1]->Fill(psiA-psiB);
             histos->hPsiDiffN[nHisto][i][1]->Fill(n*(psiA-psiB));
         }
-        histos->hTrueReso[nHisto][i]->Fill(TMath::Cos(n*(psi-truePsi[i]))); //Note: truePsi goes from 0 to 4
+        double trueR = TMath::Cos(n*(psi-truePsi[i]));
+        histos->hTrueReso[nHisto][i]->Fill(trueR); //Note: truePsi goes from 0 to 4
         histos->hvObs[nHisto][i]->Fill(vObs);
 
 
@@ -402,10 +411,11 @@ void AnalyzeEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *l
         if(nHisto==0) { //Look only trueMC for now.
             for(int iPtBin=0;iPtBin<10;iPtBin++) {
                 if(listAllPtBins[iPtBin]->GetEntriesFast()<3) continue; // If less than 2 particles, vObs will be nan.
-                sqrtSumWeights  = CalculateCumulants(listAllPtBins[iPtBin], n, bUseWeightning, qval, effValues[n], histos, nHisto, bCorr);
-                psi = qval->psi; vObs = qval->vObs;
+                //CalculateCumulants(listAllPtBins[iPtBin], n, bUseWeightning, qval, effValues[n], histos, nHisto, bCorr);
+                //psi = qval->psi; vObs = qval->vObs;
+                vObs = vObsCalculation(listAllPtBins[iPtBin], bUseWeightning, n, QxwoNorm, QywoNorm, normSq);
                 //cout << "n=" << n <<", iPtBin=" << iPtBin << ", psi=" << psi << ", vObs=" << vObs << endl;
-                histos->hTrueResoPtBins[nHisto][i][iPtBin]->Fill(TMath::Cos(n*(psi-truePsi[i]))); //Note: truePsi goes from 0 to 4
+                histos->hTrueResoPtBins[nHisto][i][iPtBin]->Fill(trueR); //Note: truePsi goes from 0 to 4
                 histos->hvObsPtBins[nHisto][i][iPtBin]->Fill(vObs);
             }
         }
@@ -479,21 +489,6 @@ double CalculateCumulants(TClonesArray *list, int n, bool bUseWeightning, Qvalue
     double Q6 = Q4*Q2;
 
     double psi = calculatePsi(Qy,Qx,n);
-    double QyMod, QxMod;
-    double vObs = 0.0;
-    double helperPsi = 0.0;
-
-    for(int i = 0; i < numberOfTracks; i++){
-        JToyMCTrack *track = (JToyMCTrack*)list->At(i);
-        weight = CalculateWeight(track, bUseWeightning);
-        phi = track->GetPhi();
-        xx = weight*TMath::Cos(n*phi);
-        yy = weight*TMath::Sin(n*phi);
-        QxMod = (helperQx-xx)/sqrt(helperNormalization-weight*weight);
-        QyMod = (helperQy-yy)/sqrt(helperNormalization-weight*weight);
-        helperPsi = calculatePsi(QyMod, QxMod ,n); // Remove autocorrelations.
-        vObs += TMath::Cos(n*(phi-helperPsi));
-    }
 
     (*qval).Qx = Qx;
     (*qval).Qy = Qy;
@@ -502,7 +497,10 @@ double CalculateCumulants(TClonesArray *list, int n, bool bUseWeightning, Qvalue
     (*qval).Q4 = Q4;
     (*qval).Q6 = Q6;
     (*qval).psi = psi;
-    (*qval).vObs = vObs/((double)numberOfTracks);
+    (*qval).QxwoNorm = helperQx;
+    (*qval).QywoNorm = helperQy;
+    (*qval).normSq = helperNormalization;
+    (*qval).vObs = vObsCalculation(list, bUseWeightning, n, helperQx, helperQy, helperNormalization);
 
     return normalization;
 }
@@ -623,6 +621,27 @@ double calculatePsi(double Qy, double Qx, double n) {
     return TMath::ATan2(Qy,Qx)/n;
 }
 
+double vObsCalculation(TClonesArray *list, bool bUseWeightning, int n, double QxwoNorm, double QywoNorm, double normSq) {
+    int numberOfTracks = list->GetEntriesFast();
+    double QyMod, QxMod, phi, weight, xx, yy;
+    double vObs = 0.0;
+    double helperPsi = 0.0;
+    //double pT = 0.0;
+
+    for(int i = 0; i < numberOfTracks; i++){
+        JToyMCTrack *track = (JToyMCTrack*)list->At(i);
+        phi = track->GetPhi();
+        weight = CalculateWeight(track, bUseWeightning);
+        xx = weight*TMath::Cos(n*phi);
+        yy = weight*TMath::Sin(n*phi);
+        QxMod = (QxwoNorm-xx)/sqrt(normSq-weight*weight);
+        QyMod = (QywoNorm-yy)/sqrt(normSq-weight*weight);
+        helperPsi = calculatePsi(QyMod, QxMod ,n); // Remove autocorrelations.
+        vObs += TMath::Cos(n*(phi-helperPsi));
+    }
+    return vObs/((double)numberOfTracks);
+}
+
 void efficiencyCalc(EffValues *effValues, int iHarm, double detAMax, double detAMin, double detBMax, double detBMin, double detAEff, double detBEff) {
 
     double const pi = TMath::Pi();
@@ -722,11 +741,10 @@ void efficiencyCalc(EffValues *effValues, int iHarm, double detAMax, double detA
     
 }
 
-int getPtBin(double pT) {
-    double const ptBins[11] = {0.0,0.2,0.6,1.0,1.5,1.8,2.2,2.8,3.5,4.5,6.0};
-    int nBin;
-    for(int iPtBin=0;iPtBin<10;iPtBin++) {
-        if(pT>ptBins[iPtBin] && pT<ptBins[iPtBin+1]) nBin = iPtBin;
+int getBin(double pT, double const *bins) {
+    int nBin = -1;
+    for(int iBin=0;iBin<10;iBin++) {
+        if(pT>bins[iBin] && pT<bins[iBin+1]) nBin = iBin;
     }
     return nBin;
 }
