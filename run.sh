@@ -1,6 +1,44 @@
 #!/bin/bash
 
-sbatch -v slurm-exec-PtDep-noWeight -J toyFlow-PtDep-noWeight -o errors-PtDep-noWeight.txt
-sbatch -v slurm-exec-PtDep-Weight -J toyFlow-PtDep-Weight -o errors-PtDep-Weight.txt
-sbatch -v slurm-exec-noPtDep-noWeight -J toyFlow-noPtDep-noWeight -o errors-noPtDep-noWeight.txt
-sbatch -v slurm-exec-noPtDep-Weight -J toyFlow-noPtDep-Weight -o errors-noPtDep-Weight.txt
+PROG=`basename $0`
+if [ $# -ne 3 ]
+then
+    echo "Usage: $PROG comment ptDep weight"
+    exit;
+fi
+
+function setenv(){ export $1=$2; }
+
+setenv comment $1
+setenv ptDep $2
+setenv weight $3
+setenv noFileToRun 100
+setenv noEvents 1000
+
+setenv DoWhat       toyFlow
+setenv oname        $DoWhat_${comment}
+
+setenv Main_DIR     `pwd`
+setenv LOG_DIR      $Main_DIR/outputs/${oname}/logs
+setenv OUT_ERRORS   $Main_DIR/outputs/${oname}/errors
+
+mkdir -p $OUT_ERRORS
+mkdir -p $LOG_DIR
+
+# simplify this !!!
+cat << EOF > exec_toyFlow_$comment
+#!/bin/bash -f
+cd $Main_DIR
+source setup.sh
+export what=$DoWhat
+export sedN=1000
+export iseg=\$SLURM_ARRAY_TASK_ID
+sedN=\`expr \$sedN + \${iseg}\`
+export outfile=${comment}_\$sedN
+export Log=$LOG_DIR/$DoWhat-\$sedN.log
+./\${what} $noEvents 1000 $ptDep $weight \$outfile \$sedN >& \$Log
+cd $Main_DIR
+EOF
+#\${what} \$outfile \$sedN 5000000 >& \$Log
+chmod +x exec_dijet_$comment
+    sbatch -v --array=1-$noFileToRun exec_toyFlow_$comment -J $comment  -e $OUT_ERRORS -o $OUT_ERRORS

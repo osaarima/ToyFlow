@@ -35,7 +35,7 @@
 *.root
 
 # Exec-files
-exec_dijet_*
+exec_toyFlow_*
 
 #Additional files:
 .*.swp
@@ -43,6 +43,7 @@ exec_dijet_*
 .*.swn
 *.vim
 orig/*
+outputs/*
 NBIcode/*
 nanoDict.cc
 nanoDict_rdict.pcm

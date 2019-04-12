@@ -1,2 +1,0 @@
-#!/bin/bash -f
-./toyFlow 100000 1000 1 0 overflowTest
