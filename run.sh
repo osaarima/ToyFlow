@@ -19,9 +19,11 @@ setenv DoWhat       toyFlow
 setenv oname        $DoWhat_${comment}
 
 setenv Main_DIR     `pwd`
+setenv Out_DIR      $Main_DIR/outputs/${oname}/data
 setenv LOG_DIR      $Main_DIR/outputs/${oname}/logs
 setenv OUT_ERRORS   $Main_DIR/outputs/${oname}/errors
 
+mkdir -p $Out_DIR
 mkdir -p $OUT_ERRORS
 mkdir -p $LOG_DIR
 
@@ -36,7 +38,7 @@ export iseg=\$SLURM_ARRAY_TASK_ID
 sedN=\`expr \$sedN + \${iseg}\`
 export outfile=${comment}_\$sedN
 export Log=$LOG_DIR/$DoWhat-\$sedN.log
-./\${what} $noEvents 1000 $ptDep $weight \$outfile \$sedN >& \$Log
+./\${what} $noEvents 1000 $ptDep $weight \$outfile $Out_DIR/ \$sedN >& \$Log
 cd $Main_DIR
 EOF
 #\${what} \$outfile \$sedN 5000000 >& \$Log
