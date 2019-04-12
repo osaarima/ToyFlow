@@ -74,13 +74,20 @@ int getBin(double pT, double const *bins);
 // Main program
 // ==============
 int main(int argc, char **argv) {
+
+    TString firstArg = argv[1];
+    if (firstArg.EqualTo("help")) {
+        cout << "usage: " << argv[0] << " nEvents dNdeta usePtDep useWeighting sFileText sFolder seed" << endl;
+        return 0;
+    }
 	
     const int nEvents = argc>1 ? atoi(argv[1]) : 100;
     const double dNdeta = argc>2 ? atoi(argv[2]) : 1000;
     const double usePtDep = argc>3 ? atoi(argv[3]) : 0;
     const double useWeighting = argc>4 ? atoi(argv[4]) : 0;
     TString sFileText = argc>5 ? argv[5] : "Test";
-    const int seed = argc>6 ? atoi(argv[6]) : 1000;
+    TString sFolder = argc>6 ? argv[6] : "";
+    const int seed = argc>7 ? atoi(argv[7]) : 1000;
     
     const double etaRange = 0.8;
     
@@ -125,7 +132,7 @@ int main(int argc, char **argv) {
     if(bv2PtDep) sv2PtDep="ptDep";
     else sv2PtDep="noptDep";
 	
-    TString outFileName = Form("toyFlow_%s_%s_%s_dNdeta-%.0f_nEvents-%d-%s.root",sUseWeightning.Data(),sRandomPsi.Data(),sv2PtDep.Data(),dNdeta,nEvents,sFileText.Data());
+    TString outFileName = Form("%stoyFlow_%s_%s_%s_dNdeta-%.0f_nEvents-%d-%s.root",sFolder.Data(),sUseWeightning.Data(),sRandomPsi.Data(),sv2PtDep.Data(),dNdeta,nEvents,sFileText.Data());
 	TFile *fOut = TFile::Open( outFileName, "RECREATE" );
 	
 	TRandom3 *randomGenerator = new TRandom3(seed);
@@ -157,7 +164,7 @@ int main(int argc, char **argv) {
     }
 	
     // save input numbers
-    TH1D *hInputNumbers = new TH1D("hInputNumbers","hInputNumbers",21, 0.5, 21.5);
+    TH1D *hInputNumbers = new TH1D("hInputNumbers","hInputNumbers",22, 0.5, 22.5);
     hInputNumbers->Fill(1, double(nEvents));
     hInputNumbers->Fill(2, double(dNdeta));
     hInputNumbers->Fill(3, etaRange);
@@ -179,6 +186,7 @@ int main(int argc, char **argv) {
     hInputNumbers->Fill(19, detBEff);
     hInputNumbers->Fill(20, alpha);
     hInputNumbers->Fill(21, defpTMax);
+    hInputNumbers->Fill(22, 1.0); //For batch jobs.
 
     // Calculate efficiency related values
     EffValues *effValues[nHarmonics+1];

@@ -35,7 +35,9 @@ void PlotToyFlow(int iType=0, bool bDrawNegRHisto = false, bool bUseWeightning =
     //TString sFileName = "toyFlow_noWeight_randomPsi_noptDep_dNdeta-1000_nEvents-1000-Test.root";
     //TString sFileName = "toyFlow_noWeight_randomPsi_noptDep_dNdeta-1000_nEvents-1000-ptbinkokeilu.root";
     //TString sFileName = "toyFlow_noWeight_randomPsi_ptDep_dNdeta-1000_nEvents-300-overflowTest.root";
-    TString sFileName = "toyFlow_noWeight_randomPsi_ptDep_dNdeta-1000_nEvents-100-newPtDepTest.root";
+    //TString sFileName = "toyFlow_noWeight_randomPsi_ptDep_dNdeta-1000_nEvents-100-newPtDepTest.root";
+    //TString sFileName = "toyFlow_noWeight_randomPsi_ptDep_dNdeta-1000_nEvents-1000-PtDep_noWeight_1100.root";
+    TString sFileName = "toyFlow_noWeight_randomPsi_ptDep_dNdeta-1000_nEvents-100-ttestt.root";
     //run1
     //TString sFileName = "toyFlow_noWeight_randomPsi_noptDep_dNdeta-1000_nEvents-100000-run1.root";
     //TString sFileName = "toyFlow_weight_randomPsi_noptDep_dNdeta-1000_nEvents-100000-run1.root";
@@ -46,12 +48,17 @@ void PlotToyFlow(int iType=0, bool bDrawNegRHisto = false, bool bUseWeightning =
     //TString sFileName = "toyFlow_weight_randomPsi_noptDep_dNdeta-1000_nEvents-1000000-overflowTest.root";
     //TString sFileName = "toyFlow_noWeight_randomPsi_ptDep_dNdeta-1000_nEvents-100000-overflowTest.root";
     //TString sFileName = "toyFlow_weight_randomPsi_ptDep_dNdeta-1000_nEvents-100000-overflowTest.root";
+    //New puck run
+    //TString sFileName = "toyFlow_noWeight_randomPsi_ptDep_dNdeta-1000_nEvents-100000.root";
+    //TString sFileName = "toyFlow_noWeight_randomPsi_noptDep_dNdeta-1000_nEvents-100000.root";
 
     TFile *fIn = TFile::Open(sFileName,"read");
     if(fIn==0x0) {
         cout << "File not found, terminating." << endl;
         return -1;
     }
+
+    double dNdetaScaling = 1000; // Should change the scaling to its own thing, not related to nMult.
     
     const int nCoef = 5;
     const int nPtBins = 10;
@@ -60,22 +67,24 @@ void PlotToyFlow(int iType=0, bool bDrawNegRHisto = false, bool bUseWeightning =
     TH1D *hInputNumbers = (TH1D*)fIn->Get("hInputNumbers");
     double nEvents = hInputNumbers->GetBinContent(1);
     double dNdeta = hInputNumbers->GetBinContent(2);
-    double etaRange = hInputNumbers->GetBinContent(3);
-    double nMult = hInputNumbers->GetBinContent(4);
-    for(int i = 0; i < nCoef; i++) inputFlow[i] = hInputNumbers->GetBinContent(5+i);
-    double Tdec = hInputNumbers->GetBinContent(10);
-    double vr = hInputNumbers->GetBinContent(11);
-    double Teff = hInputNumbers->GetBinContent(12);
-    double slope = hInputNumbers->GetBinContent(13);
-    double const detAMax = hInputNumbers->GetBinContent(14);
-    double const detAMin = hInputNumbers->GetBinContent(15);
-    double const detBMax = hInputNumbers->GetBinContent(16);
-    double const detBMin = hInputNumbers->GetBinContent(17);
-    double const detAEff = hInputNumbers->GetBinContent(18);
-    double const detBEff = hInputNumbers->GetBinContent(19);
-    double const alpha = hInputNumbers->GetBinContent(20);
-    double const pTMax = hInputNumbers->GetBinContent(21);
+    dNdeta = dNdeta/dNdetaScaling;
+    double etaRange = hInputNumbers->GetBinContent(3)/dNdeta;
+    double nMult = hInputNumbers->GetBinContent(4)/dNdeta;
+    for(int i = 0; i < nCoef; i++) inputFlow[i] = hInputNumbers->GetBinContent(5+i)/dNdeta;
+    double Tdec = hInputNumbers->GetBinContent(10)/dNdeta;
+    double vr = hInputNumbers->GetBinContent(11)/dNdeta;
+    double Teff = hInputNumbers->GetBinContent(12)/dNdeta;
+    double slope = hInputNumbers->GetBinContent(13)/dNdeta;
+    double const detAMax = hInputNumbers->GetBinContent(14)/dNdeta;
+    double const detAMin = hInputNumbers->GetBinContent(15)/dNdeta;
+    double const detBMax = hInputNumbers->GetBinContent(16)/dNdeta;
+    double const detBMin = hInputNumbers->GetBinContent(17)/dNdeta;
+    double const detAEff = hInputNumbers->GetBinContent(18)/dNdeta;
+    double const detBEff = hInputNumbers->GetBinContent(19)/dNdeta;
+    double const alpha = hInputNumbers->GetBinContent(20)/dNdeta;
+    double const pTMax = hInputNumbers->GetBinContent(21)/dNdeta;
     cout << "alpha: " << alpha << ", pTMax: " << pTMax << endl;
+
     
     TH1D *hFlowIn = new TH1D("hFlowIn", "hFlowIn", nCoef, 0.5, double(nCoef)+0.5);
     hFlowIn->SetLineStyle(1);
