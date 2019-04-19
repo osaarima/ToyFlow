@@ -22,7 +22,7 @@ bool isInAcc(double phi, double detMax, double detMin);
 double v2PtDependence(double *x, double *p);
 double v2PtDependenceFun(double pT, double pTmax, double alpha);
 
-void PlotToyFlow(int iType=2, bool bDrawNegRHisto = false, bool bUseWeightning = false, bool bCheckAllHistos = false, bool bPrintGraphs = false ){
+void PlotToyFlow(int iType=0, bool bDrawNegRHisto = false, bool bUseWeightning = false, bool bCheckAllHistos = false, bool bPrintGraphs = false ){
     int nType = 3;
     
     int iDrawNegRHisto=0;
@@ -38,6 +38,7 @@ void PlotToyFlow(int iType=2, bool bDrawNegRHisto = false, bool bUseWeightning =
     //TString sFileName = "toyFlow_noWeight_randomPsi_ptDep_dNdeta-1000_nEvents-100-newPtDepTest.root";
     //TString sFileName = "toyFlow_noWeight_randomPsi_ptDep_dNdeta-1000_nEvents-1000-PtDep_noWeight_1100.root";
     //TString sFileName = "toyFlow_noWeight_randomPsi_ptDep_dNdeta-1000_nEvents-100-ttestt.root";
+    TString sFileName = "toyFlow_noWeight_randomPsi_noptDep_dNdeta-1000_nEvents-1000-EPtest.root";
     //run1
     //TString sFileName = "toyFlow_noWeight_randomPsi_noptDep_dNdeta-1000_nEvents-100000-run1.root";
     //TString sFileName = "toyFlow_weight_randomPsi_noptDep_dNdeta-1000_nEvents-100000-run1.root";
@@ -49,7 +50,7 @@ void PlotToyFlow(int iType=2, bool bDrawNegRHisto = false, bool bUseWeightning =
     //TString sFileName = "toyFlow_noWeight_randomPsi_ptDep_dNdeta-1000_nEvents-100000-overflowTest.root";
     //TString sFileName = "toyFlow_weight_randomPsi_ptDep_dNdeta-1000_nEvents-100000-overflowTest.root";
     //New puck run
-    TString sFileName = "toyFlow_noWeight_randomPsi_ptDep_dNdeta-1000_nEvents-1000.root";
+    //TString sFileName = "toyFlow_noWeight_randomPsi_ptDep_dNdeta-1000_nEvents-1000.root";
     //TString sFileName = "toyFlow_noWeight_randomPsi_noptDep_dNdeta-1000_nEvents-100000.root";
 
     TFile *fIn = TFile::Open(sFileName,"read");
@@ -154,6 +155,15 @@ void PlotToyFlow(int iType=2, bool bDrawNegRHisto = false, bool bUseWeightning =
     hSqrtSumWeightsB[iType]->SetMarkerStyle(24);
     hSqrtSumWeightsB[iType]->SetMarkerColor(1);
     hSqrtSumWeightsB[iType]->SetMarkerSize(0.8);
+
+    TH1D *hSqrtSumWeightsPtBins[nType][nPtBins];
+    for(int iPtBin=0;iPtBin<nPtBins;iPtBin++) {
+        hSqrtSumWeightsPtBins[iType][iPtBin] = (TH1D*)fIn->Get(Form("hSqrtSumWeightsPtBinsT%02iPtB%02i",iType,iPtBin));
+        hSqrtSumWeightsPtBins[iType][iPtBin]->Scale(1./nEvents,"width");
+        hSqrtSumWeightsPtBins[iType][iPtBin]->SetMarkerStyle(24);
+        hSqrtSumWeightsPtBins[iType][iPtBin]->SetMarkerColor(1);
+        hSqrtSumWeightsPtBins[iType][iPtBin]->SetMarkerSize(0.8);
+    }
     
     double meanMultiplicity = hMultiplicity[iType]->GetMean();
     double meanMultiplicityTrue = hMultiplicity[0]->GetMean();
@@ -161,10 +171,20 @@ void PlotToyFlow(int iType=2, bool bDrawNegRHisto = false, bool bUseWeightning =
     
     double weight = hSqrtSumWeights[iType]->GetMean();
     double weightError = hSqrtSumWeights[iType]->GetMeanError();
-    
+    double weightPtBins[nPtBins];
+    double weightErrorPtBins[nPtBins];
+    for(int iPtBin=0;iPtBin<nPtBins;iPtBin++) {
+        weightPtBins[iPtBin] = hSqrtSumWeightsPtBins[iType][iPtBin]->GetMean();
+        weightErrorPtBins[iPtBin] = hSqrtSumWeightsPtBins[iType][iPtBin]->GetMeanError();
+    }
+
     if( bUseWeightning ){
         weight *= TMath::Sqrt( meanMultiplicity );
         weightError *= TMath::Sqrt( meanMultiplicity ); // Need to update error from mean multiplicity itself
+        for(int iPtBin=0;iPtBin<nPtBins;iPtBin++) {
+            weightPtBins[iPtBin] *= TMath::Sqrt( meanMultiplicity ); // Need to update error from mean multiplicity itself
+            weightErrorPtBins[iPtBin] *= TMath::Sqrt( meanMultiplicity ); // Need to update error from mean multiplicity itself
+        }
     }
 
     TF1 *fAcceptanceFunc = new TF1("fAcceptanceFunc", AcceptanceFunc, -TMath::Pi(), TMath::Pi(), 10);
@@ -191,6 +211,7 @@ void PlotToyFlow(int iType=2, bool bDrawNegRHisto = false, bool bUseWeightning =
     TH1D *hQ6[nType][nCoef];
     TH1D *hvObs[nType][nCoef];
     TH1D *hvObsPtBins[nType][nCoef][nPtBins];
+    TH1D *hEPnominatorPtBins[nType][nCoef][nPtBins];
     TH1D *hrSub[nType][nCoef];
     TH1D *hTrueReso[nType][nCoef];
     TH1D *hTrueResoPtBins[nType][nCoef][nPtBins];
@@ -268,6 +289,13 @@ void PlotToyFlow(int iType=2, bool bDrawNegRHisto = false, bool bUseWeightning =
             hvObsPtBins[iType][i][iPtBin]->SetMarkerSize(0.8);
             checkUnderOverFlow(hvObsPtBins[iType][i][iPtBin]);
 
+            hEPnominatorPtBins[iType][i][iPtBin] = (TH1D*)fIn->Get( Form("hEPnominatorPtBinsT%02iH%02iPtB%02i",iType,i+1,iPtBin) );
+            hEPnominatorPtBins[iType][i][iPtBin]->Scale(1./hEPnominatorPtBins[iType][i][iPtBin]->GetEntries(),"width");
+            hEPnominatorPtBins[iType][i][iPtBin]->SetMarkerStyle(20);
+            hEPnominatorPtBins[iType][i][iPtBin]->SetMarkerColor(1+i);
+            hEPnominatorPtBins[iType][i][iPtBin]->SetMarkerSize(0.8);
+            checkUnderOverFlow(hEPnominatorPtBins[iType][i][iPtBin]);
+
             hTrueResoPtBins[iType][i][iPtBin] = (TH1D*)fIn->Get( Form("hTrueResoPtBinsT%02iH%02iPtB%02i",iType,i+1,iPtBin) );
             hTrueResoPtBins[iType][i][iPtBin]->Scale(1./hTrueResoPtBins[iType][i][iPtBin]->GetEntries(),"width");
             hTrueResoPtBins[iType][i][iPtBin]->SetMarkerStyle(20);
@@ -332,6 +360,7 @@ void PlotToyFlow(int iType=2, bool bDrawNegRHisto = false, bool bUseWeightning =
     double meanQ6[nCoef] = {0}, meanErrorQ6[nCoef] = {0};
     double meanvObs[nCoef] = {0}, meanErrorvObs[nCoef] = {0};
     double meanvObsPtBins[nCoef][nPtBins] = {{0}}, meanErrorvObsPtBins[nCoef][nPtBins] = {{0}};
+    double meanEPnomPtBins[nCoef][nPtBins] = {{0}}, meanErrorEPnomPtBins[nCoef][nPtBins] = {{0}};
     double meanvRealEP[nCoef] = {0}, meanErrorvRealEP[nCoef] = {0};
     double meanvRealEPTrue[nCoef] = {0}, meanErrorvRealEPTrue[nCoef] = {0};
     double meanvRealEPTruePtBins[nCoef][nPtBins] = {0}, meanErrorvRealEPTruePtBins[nCoef][nPtBins] = {0};
@@ -350,6 +379,7 @@ void PlotToyFlow(int iType=2, bool bDrawNegRHisto = false, bool bUseWeightning =
     double v6cumul[nCoef], v6cumulError[nCoef]; // 6th order cumulants
     double vEP[nCoef], vEPError[nCoef];         // Event Plane -method
     double vSP[nCoef], vSPError[nCoef];         // Scalar Product -method
+    double vEPPtBins[nCoef][nPtBins], vEPErrorPtBins[nCoef][nPtBins];         // Event Plane -method
     
     // Extract flow from the fit to the Q
     TF1 *fitQ = new TF1("fitQ", fFitMeanQ, 0.0, 15.0, 3);
@@ -465,6 +495,7 @@ void PlotToyFlow(int iType=2, bool bDrawNegRHisto = false, bool bUseWeightning =
         for(int iPtBin=0;iPtBin<nPtBins;iPtBin++) {
             meanvObsPtBins[i][iPtBin] = hvObsPtBins[iType][i][iPtBin]->GetMean(); meanErrorvObsPtBins[i][iPtBin] = hvObsPtBins[iType][i][iPtBin]->GetMeanError();
             meanrTruePtBins[i][iPtBin] = hTrueResoPtBins[iType][i][iPtBin]->GetMean(); meanErrorrTruePtBins[i][iPtBin] = hTrueResoPtBins[iType][i][iPtBin]->GetMeanError();
+            meanEPnomPtBins[i][iPtBin] = hEPnominatorPtBins[iType][i][iPtBin]->GetMean(); meanErrorEPnomPtBins[i][iPtBin] = hEPnominatorPtBins[iType][i][iPtBin]->GetMeanError();
         }
         tryXi=0.001;
         iterDiff=1.0;
@@ -516,12 +547,14 @@ void PlotToyFlow(int iType=2, bool bDrawNegRHisto = false, bool bUseWeightning =
         v6cumul[i] = CalculateV2Using6Cumul( meanQ6[i], meanQ4[i], meanQ2[i], weight );
         vEP[i] = CalculateV2UsingEPorSP(  meanEPnom[i], meanEPdenom[i], weight );
         vSP[i] = CalculateV2UsingEPorSP(  meanSPnom[i], meanSPdenom[i], weight );
+        for(int iPtBin=0;iPtBin<nPtBins;iPtBin++) vEPPtBins[i][iPtBin] = CalculateV2UsingEPorSP(  meanEPnomPtBins[i][iPtBin], meanEPdenom[i], weightPtBins[0] ); //TODO: implement pt-binned weight
         // errors
         v1cumulError[i] = meanErrorQ[i]/weight + meanQ[i]/weight/weight*weightError;
         v4cumulError[i] = CalculateV2ErrorUsing4Cumul( meanQ4[i], meanQ2[i], meanErrorQ4[i], meanErrorQ2[i], weight, weightError );
         v6cumulError[i] = CalculateV2ErrorUsing6Cumul( meanQ6[i], meanQ4[i], meanQ2[i], meanErrorQ6[i], meanErrorQ4[i], meanErrorQ2[i], weight, weightError );
         vEPError[i] = CalculateV2ErrorUsingEPorSP(  meanEPnom[i], meanEPdenom[i], meanErrorEPnom[i], meanErrorEPdenom[i], weight, weightError );
         vSPError[i] = CalculateV2ErrorUsingEPorSP(  meanSPnom[i], meanSPdenom[i], meanErrorSPnom[i], meanErrorSPdenom[i], weight, weightError );
+        for(int iPtBin=0;iPtBin<nPtBins;iPtBin++) vEPErrorPtBins[i][iPtBin] = CalculateV2ErrorUsingEPorSP(  meanEPnomPtBins[i][iPtBin], meanEPdenom[i], meanErrorEPnomPtBins[i][iPtBin], meanErrorEPdenom[i], weightPtBins[iPtBin], weightErrorPtBins[iPtBin] ); //TODO: implement pt-binned weight
         cout << i << "  " << v1cumul[i] << "  " << v4cumul[i] << "  " << v6cumul[i] << "  " << vEP[i] << "  " << vSP[i] << endl;
     }
     
@@ -692,15 +725,21 @@ void PlotToyFlow(int iType=2, bool bDrawNegRHisto = false, bool bUseWeightning =
     double const ptBins[11] = {0.0,0.2,0.6,1.0,1.5,1.8,2.2,2.8,3.5,4.5,6.0};
     TF1 *fPtDep = new TF1("fPhiDistribution", v2PtDependence, 0.0, 6.0, 3);
     fPtDep->SetParameters(alpha,pTMax,inputFlow[1]);
-    TGraphErrors *gv2PtDep = new TGraphErrors(nPtBins);
-    gv2PtDep->SetMarkerStyle(28);
-    gv2PtDep->SetMarkerColor(1);
-    gv2PtDep->SetMarkerSize(0.8);
+    TGraphErrors *gv2RealEPPtDep = new TGraphErrors(nPtBins);
+    TGraphErrors *gv2EPPtDep = new TGraphErrors(nPtBins);
+    gv2RealEPPtDep->SetMarkerStyle(28);
+    gv2RealEPPtDep->SetMarkerColor(1);
+    gv2RealEPPtDep->SetMarkerSize(0.8);
+    gv2EPPtDep->SetMarkerStyle(28);
+    gv2EPPtDep->SetMarkerColor(2);
+    gv2EPPtDep->SetMarkerSize(0.8);
     for(int iPtBin=0;iPtBin<nPtBins;iPtBin++) {
         double middlepoint = (ptBins[iPtBin]+ptBins[iPtBin+1])/2.0;
         double binWidth = middlepoint-ptBins[iPtBin];
-        gv2PtDep->SetPoint(iPtBin,middlepoint,meanvRealEPTruePtBins[1][iPtBin]); //only v2, which is i=1
-        gv2PtDep->SetPointError(iPtBin,binWidth,meanErrorvRealEPTruePtBins[1][iPtBin]);
+        gv2RealEPPtDep->SetPoint(iPtBin,middlepoint,meanvRealEPTruePtBins[1][iPtBin]); //only v2, which is i=1
+        gv2RealEPPtDep->SetPointError(iPtBin,binWidth,meanErrorvRealEPTruePtBins[1][iPtBin]);
+        gv2EPPtDep->SetPoint(iPtBin,middlepoint,vEPPtBins[1][iPtBin]); //only v2, which is i=1
+        gv2EPPtDep->SetPointError(iPtBin,binWidth,vEPErrorPtBins[1][iPtBin]);
     }
 
     mc(iFig++);
@@ -711,7 +750,8 @@ void PlotToyFlow(int iType=2, bool bDrawNegRHisto = false, bool bUseWeightning =
     myhset( *hfr, "p_{T}", "v_{2}",0.9,1.4, 0.06,0.05, 0.01,0.001, 0.04,0.05, 510,510);
     hfr->Draw();
     
-    gv2PtDep->Draw("same,p");
+    gv2RealEPPtDep->Draw("same,p");
+    gv2EPPtDep->Draw("same,p");
     fPtDep->Draw("same");
     
     

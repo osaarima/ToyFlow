@@ -21,6 +21,7 @@ public:
     TH1D *hSqrtSumWeights[3];
     TH1D *hSqrtSumWeightsA[3];
     TH1D *hSqrtSumWeightsB[3];
+    TH1D *hSqrtSumWeightsPtBins[3][10];
     // integrated flow
     TH1D *hQx[3][5];
     TH1D *hQy[3][5];
