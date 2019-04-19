@@ -22,7 +22,7 @@ bool isInAcc(double phi, double detMax, double detMin);
 double v2PtDependence(double *x, double *p);
 double v2PtDependenceFun(double pT, double pTmax, double alpha);
 
-void PlotToyFlow(int iType=0, bool bDrawNegRHisto = false, bool bUseWeightning = false, bool bCheckAllHistos = false, bool bPrintGraphs = false ){
+void PlotToyFlow(int iType=2, bool bDrawNegRHisto = false, bool bUseWeightning = false, bool bCheckAllHistos = false, bool bPrintGraphs = false ){
     int nType = 3;
     
     int iDrawNegRHisto=0;
@@ -37,7 +37,7 @@ void PlotToyFlow(int iType=0, bool bDrawNegRHisto = false, bool bUseWeightning =
     //TString sFileName = "toyFlow_noWeight_randomPsi_ptDep_dNdeta-1000_nEvents-300-overflowTest.root";
     //TString sFileName = "toyFlow_noWeight_randomPsi_ptDep_dNdeta-1000_nEvents-100-newPtDepTest.root";
     //TString sFileName = "toyFlow_noWeight_randomPsi_ptDep_dNdeta-1000_nEvents-1000-PtDep_noWeight_1100.root";
-    TString sFileName = "toyFlow_noWeight_randomPsi_ptDep_dNdeta-1000_nEvents-100-ttestt.root";
+    //TString sFileName = "toyFlow_noWeight_randomPsi_ptDep_dNdeta-1000_nEvents-100-ttestt.root";
     //run1
     //TString sFileName = "toyFlow_noWeight_randomPsi_noptDep_dNdeta-1000_nEvents-100000-run1.root";
     //TString sFileName = "toyFlow_weight_randomPsi_noptDep_dNdeta-1000_nEvents-100000-run1.root";
@@ -49,7 +49,7 @@ void PlotToyFlow(int iType=0, bool bDrawNegRHisto = false, bool bUseWeightning =
     //TString sFileName = "toyFlow_noWeight_randomPsi_ptDep_dNdeta-1000_nEvents-100000-overflowTest.root";
     //TString sFileName = "toyFlow_weight_randomPsi_ptDep_dNdeta-1000_nEvents-100000-overflowTest.root";
     //New puck run
-    //TString sFileName = "toyFlow_noWeight_randomPsi_ptDep_dNdeta-1000_nEvents-100000.root";
+    TString sFileName = "toyFlow_noWeight_randomPsi_ptDep_dNdeta-1000_nEvents-1000.root";
     //TString sFileName = "toyFlow_noWeight_randomPsi_noptDep_dNdeta-1000_nEvents-100000.root";
 
     TFile *fIn = TFile::Open(sFileName,"read");

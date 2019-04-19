@@ -67,6 +67,7 @@ JHistos::JHistos(){
             for(int iPtBin=0;iPtBin<10;iPtBin++) {
                 hvObsPtBins[iType][i][iPtBin] = new TH1D(Form("hvObsPtBinsT%02iH%02iPtB%02i",iType,i+1,iPtBin),Form("hvObs%s%02i %.1f - %.1f",sType[iType].Data(),i+1,ptBins[iPtBin],ptBins[iPtBin+1]),100, -1.0, 1.0); hvObsPtBins[iType][i][iPtBin]->Sumw2();
                 hTrueResoPtBins[iType][i][iPtBin] = new TH1D(Form("hTrueResoPtBinsT%02iH%02iPtB%02i",iType,i+1,iPtBin),Form("hTrueResoPtBinsT%s%02i %.1f - %.1f",sType[iType].Data(),i+1,ptBins[iPtBin],ptBins[iPtBin+1]),200, -1.0, 1.0); hTrueResoPtBins[iType][i][iPtBin]->Sumw2();
+                hEPnominatorPtBins[iType][i][iPtBin] = new TH1D(Form("hEPnominatorPtBinsT%02iH%02iPtB%02i",iType,i+1,iPtBin),Form("hEPnominatorPtBinsT%s%02i %.1f - %.1f",sType[iType].Data(),i+1,ptBins[iPtBin],ptBins[iPtBin+1]),400,0.0,20.0); hEPnominatorPtBins[iType][i][iPtBin]->Sumw2();
             }
             hSPnominator[iType][i] = new TH1D(Form("hSPnominatorVT%02iH%02i",iType,i+1),Form("hSPnominatorV%s%02i",sType[iType].Data(),i+1),binsQ, LogQ2BinsX); hSPnominator[iType][i]->Sumw2();
             hSPdenominator[iType][i] = new TH1D(Form("hSPdenominatorVT%02iH%02i",iType,i+1),Form("hSPdenominatorV%s%02i",sType[iType].Data(),i+1),binsQ, LogQ2BinsX); hSPdenominator[iType][i]->Sumw2();

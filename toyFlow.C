@@ -416,11 +416,16 @@ void AnalyzeEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *l
         histos->hEPnominator[nHisto][i]->Fill(vnEPnominator);
         histos->hEPdenominator[nHisto][i]->Fill(vnEPdenominator);
 
-        if(nHisto==0) { //Look only trueMC for now.
+        double psiPOI, QxPOI, QyPOI, QPOI, vnEPnominatorPOI;
+        if(true) {//nHisto==0) { //Look only trueMC for now.
             for(int iPtBin=0;iPtBin<10;iPtBin++) {
                 if(listAllPtBins[iPtBin]->GetEntriesFast()<3) continue; // If less than 2 particles, vObs will be nan.
-                //CalculateCumulants(listAllPtBins[iPtBin], n, bUseWeightning, qval, effValues[n], histos, nHisto, bCorr);
-                //psi = qval->psi; vObs = qval->vObs;
+                CalculateCumulants(listAllPtBins[iPtBin], n, bUseWeightning, qval, effValues[n], histos, nHisto, bCorr);
+                QxPOI = qval->Qx; QyPOI = qval->Qy; QPOI = qval->Q;
+                vnEPnominatorPOI = CalculateDotProduct(QxPOI, QyPOI, QxA, QyA) / QPOI;
+                histos->hEPnominatorPtBins[nHisto][i][iPtBin]->Fill(vnEPnominatorPOI);
+
+                // Calculating vObs with the Q-vector from the whole event.
                 vObs = vObsCalculation(listAllPtBins[iPtBin], bUseWeightning, n, QxwoNorm, QywoNorm, normSq);
                 //cout << "n=" << n <<", iPtBin=" << iPtBin << ", psi=" << psi << ", vObs=" << vObs << endl;
                 histos->hTrueResoPtBins[nHisto][i][iPtBin]->Fill(trueR); //Note: truePsi goes from 0 to 4
