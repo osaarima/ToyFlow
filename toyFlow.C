@@ -366,7 +366,7 @@ void GetDetectorParticles(TClonesArray *listAll,
 
 
 void AnalyzeEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *listSubB, TClonesArray **listAllPtBins, double *truePsi, bool bUseWeightning, bool bCorr, JHistos *histos, EffValues **effValues, int const nHisto){
-    double Qx, QxA, QxB, Qy, QyA, QyB, Q, QA, QB, Q2, Q2A, Q2B, Q4, Q4A, Q4B, Q6, Q6A, Q6B, psi, psiA, psiB, vObs, vObsA, vObsB, vnSPnominator,vnSPdenominator,vnEPnominator,vnEPdenominator, QxwoNorm, QywoNorm, normSq;
+    double Qx, QxA, QxB, Qy, QyA, QyB, Q, QA, QB, Q2, Q4, Q6, psi, psiA, psiB, vObs, vnSPnominator,vnSPdenominator,vnEPnominator,vnEPdenominator, QxwoNorm, QywoNorm, normSq;
     double sqrtSumWeights = 0.0, sqrtSumWeightsA = 0.0, sqrtSumWeightsB = 0.0;
 
     Qvalues *qval = new Qvalues;
@@ -384,10 +384,10 @@ void AnalyzeEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *l
         normSq   = qval->normSq;
 
         sqrtSumWeightsA  = CalculateCumulants(listSubA, n, bUseWeightning, qval, effValues[n], histos, nHisto, bCorr);
-        QxA = qval->Qx; QyA = qval->Qy; QA = qval->Q; Q2A = qval->Q2; Q4A = qval->Q4; Q6A = qval->Q6; psiA = qval->psi; vObsA = qval->vObs;
+        QxA = qval->Qx; QyA = qval->Qy; QA = qval->Q; psiA = qval->psi;
 
         sqrtSumWeightsB  = CalculateCumulants(listSubB, n, bUseWeightning, qval, effValues[n], histos, nHisto, bCorr);
-        QxB = qval->Qx; QyB = qval->Qy; QB = qval->Q; Q2B = qval->Q2; Q4B = qval->Q4; Q6B = qval->Q6; psiB = qval->psi; vObsB = qval->vObs;
+        QxB = qval->Qx; QyB = qval->Qy; QB = qval->Q; psiB = qval->psi;
 
         double rSub = TMath::Cos(n*(psiA-psiB));
 
@@ -422,12 +422,12 @@ void AnalyzeEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *l
         histos->hEPnominator[nHisto][i]->Fill(vnEPnominator);
         histos->hEPdenominator[nHisto][i]->Fill(vnEPdenominator);
 
-        double psiPOI, QxPOI, QyPOI, QPOI, vnEPnominatorPOI, imaginaryPart;
+        double QxPOI, QyPOI, vnEPnominatorPOI, imaginaryPart;
         if(n==2) { //Look only n=2
             for(int iPtBin=0;iPtBin<nHarmonics;iPtBin++) {
                 if(listAllPtBins[iPtBin]->GetEntriesFast()<3) continue; // If less than 2 particles, vObs will be nan.
                 sqrtSumWeightsPOI[iPtBin] = CalculateCumulants(listAllPtBins[iPtBin], n, bUseWeightning, qval, effValues[n], histos, nHisto, bCorr);
-                QxPOI = qval->Qx; QyPOI = qval->Qy; QPOI = qval->Q;
+                QxPOI = qval->Qx; QyPOI = qval->Qy;
                 vnEPnominatorPOI = CalculateDotProduct(QxPOI, QyPOI, QxA, QyA) / QA;
                 imaginaryPart = CalculateImaginaryPart(QxPOI, QyPOI, QxA, QyA) / QA;
                 histos->hEPnominatorPtBins[nHisto][i][iPtBin]->Fill(vnEPnominatorPOI);
@@ -695,7 +695,7 @@ void efficiencyCalc(EffValues *effValues, int iHarm, double detAMax, double detA
     TF1 *fAcceptanceFunc;
     TF1 *fAcceptanceFuncSin;
     TF1 *fAcceptanceFuncCos;
-    double integral=0.0, cBar=0.0, sBar=0.0, c2nBar=0.0, s2nBar=0.0, a2nPlus=0.0, a2nMinus=0.0, lambda2nCPlus=0.0, lambda2nCMinus=0.0, lambda2nSPlus=0.0, lambda2nSMinus=0.0;
+    double integral=0.0, cBar=0.0, sBar=0.0, c2nBar=0.0, s2nBar=0.0, a2nPlus=0.0, a2nMinus=0.0, lambda2nSPlus=0.0, lambda2nSMinus=0.0;
     fAcceptanceFunc    = new TF1("fAcceptanceFunc", AcceptanceFunc, -pi, pi, 10);
     fAcceptanceFuncSin = new TF1("fAcceptanceFuncSin", AcceptanceFuncSin, -pi, pi, 10);
     fAcceptanceFuncCos = new TF1("fAcceptanceFuncCos", AcceptanceFuncCos, -pi, pi, 10);
@@ -744,8 +744,6 @@ void efficiencyCalc(EffValues *effValues, int iHarm, double detAMax, double detA
     a2nPlus  = 1.0 + c2nBar;
     a2nMinus = 1.0 - c2nBar;
 
-    lambda2nCPlus  = c2nBar/a2nPlus;
-    lambda2nCMinus = c2nBar/a2nMinus;
     lambda2nSPlus  = s2nBar/a2nPlus;
     lambda2nSMinus = s2nBar/a2nMinus;
     delete fAcceptanceFunc;
@@ -786,6 +784,7 @@ double granularPhi(double phi) {
         if(phi > sectorLowPoints[i] && phi < sectorLowPoints[i+1])
             return (sectorLowPoints[i]+sectorLowPoints[i+1])/2.0;
     }
+    return -1.0;
 }
 
 double granularEta(double phi) {
@@ -797,5 +796,6 @@ double granularEta(double phi) {
         if(phi > ringLowPoints[i] && phi < ringLowPoints[i+1])
             return (ringLowPoints[i]+ringLowPoints[i+1])/2.0;
     }
+    return -1.0;
 }
 
