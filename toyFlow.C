@@ -11,6 +11,7 @@
 // OWN
 #include "JToyMCTrack.h"  // TLorentzVector + isHT, isHard, isSoft, isCharged, isIsolated, isLeading + ID number
 #include "JHistos.h"      // encapsulates all histograms
+#include "JConst.h"
 
 // ROOT 
 #include "TFile.h"
@@ -48,15 +49,16 @@ struct EffValues{
     double a2nMinus;
 };
 
-void GetEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *listSubB, TClonesArray **listAllPtBins, int nPtBins, double const *ptBins, TRandom3 *rand, TF1 *fPt, TF1 *fPhi, int nMult, JHistos *histos, bool bv2PtDep);
+void GetEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *listSubB, TClonesArray **listAllPtBins, int nPtBins, double const *ptBins, TRandom3 *rand, TF1 *fPt, TF1 *fPhi, int nMult, JHistos *histos, bool bv2PtDep, bool bUseGranularity);
 void GetDetectorParticles(TClonesArray *listAll, TClonesArray *listAllDet, TClonesArray *listSubADet, TClonesArray *listSubBDet, double detAMax, double detAMin, double detBMax, double detBMin, double detAEff, double detBEff, TRandom3 *rand, JHistos *histos);
 void AnalyzeEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *listSubB, TClonesArray **listAllPtBins, double *truePsi, bool bUseWeightning, bool bCorr, JHistos *histos, EffValues **effValues, int const nHisto);
 double CalculateCumulants(TClonesArray *list, int n, bool bUseWeightning, Qvalues *qval, EffValues *effValues, JHistos *histos, int const nHisto, bool bCorr);
 double CalculateWeight(JToyMCTrack *track, bool bUseWeightning);
 double CalculateDotProduct(double ax, double ay, double bx, double by);
+double CalculateImaginaryPart(double ax, double ay, double bx, double by);
 double SingleParticlePt(double *x, double *para);
 double v2PtDependence(double *x, double *p);
-double v2PtDependenceFun(double pT, double pTmax, double alpha);
+double v2PtDependenceFun(double pT, double pTmax, double alphaPar);
 double SingleParticlePhi(double *x, double *para);
 double AcceptanceFunc(double *x, double *p);
 double AcceptanceFuncSin(double *x, double *p);
@@ -67,6 +69,8 @@ double calculatePsi(double Qy, double Qx, double n);
 double vObsCalculation(TClonesArray *list, bool bUseWeightning, int n, double QxwoNorm, double QywoNorm, double normSq);
 void efficiencyCalc(EffValues *effValues, int iHarm, double detAMax, double detAMin, double detBMax, double detBMin, double detAEff, double detBEff);
 int getBin(double pT, double const *bins);
+double granularPhi(double phi);
+double granularEta(double phi);
 
 
 
@@ -77,24 +81,23 @@ int main(int argc, char **argv) {
 
     TString firstArg = argv[1];
     if (firstArg.EqualTo("help")) {
-        cout << "usage: " << argv[0] << " nEvents dNdeta usePtDep useWeighting sFileText sFolder seed" << endl;
+        cout << "usage: " << argv[0] << " nEvents dNdeta usePtDep useWeighting useGranularity sFileText sFolder seed" << endl;
         return 0;
     }
 	
     const int nEvents = argc>1 ? atoi(argv[1]) : 100;
     const double dNdeta = argc>2 ? atoi(argv[2]) : 1000;
-    const double usePtDep = argc>3 ? atoi(argv[3]) : 0;
-    const double useWeighting = argc>4 ? atoi(argv[4]) : 0;
-    TString sFileText = argc>5 ? argv[5] : "Test";
-    TString sFolder = argc>6 ? argv[6] : "";
-    const int seed = argc>7 ? atoi(argv[7]) : 1000;
-    
-    const double etaRange = 0.8;
+    const int usePtDep = argc>3 ? atoi(argv[3]) : 0;
+    const int useWeighting = argc>4 ? atoi(argv[4]) : 0;
+    const int useGranularity = argc>5 ? atoi(argv[5]) : 0;
+    TString sFileText = argc>6 ? argv[6] : "Test";
+    TString sFolder = argc>7 ? argv[7] : "";
+    const int seed = argc>8 ? atoi(argv[8]) : 1000;
     
     const int nMult = int( 2. * etaRange * dNdeta );
     cout << "nEvents = " << nEvents << ", dNdeta = " << dNdeta << " and total multiplicity = " << nMult << endl;
     
-    const int nHarmonics = 5;
+    //const int nHarmonics = 5; //In JConst.h
     const int nPtBins = 10;
     const double vn[nHarmonics] = {0.0, 0.15, 0.08, 0.03, 0.01}; // Peripheral
     //const double vn[nHarmonics] = {0.0, 0.01, 0.00, 0.00, 0.00}; // Very central
@@ -112,9 +115,10 @@ int main(int argc, char **argv) {
     bool bRandomPsi = true;
     bool bUseWeightning = useWeighting;
     bool bv2PtDep = usePtDep;
-    cout << "bRandomPsi=" << bRandomPsi << ", bUseWeightning=" << bUseWeightning << ", bv2PtDep=" << bv2PtDep << endl;
-    double alpha = 2.0;
-    double defpTMax = 2.0;
+    bool bUseGranularity = useGranularity;
+    cout << "bRandomPsi=" << bRandomPsi << ", bUseWeightning=" << bUseWeightning << ", bv2PtDep=" << bv2PtDep << ", useGranularity=" << bUseGranularity << endl;
+    //double alpha = 2.0; //In JConst.h
+    //double defpTMax = 2.0; //In JConst.h
     double const pi = TMath::Pi();
     
 	TStopwatch timer;
@@ -140,8 +144,8 @@ int main(int argc, char **argv) {
     
     double Psi[nHarmonics] = {0};
     
-    double Tdec = 0.12;
-    double vr = 0.6;
+    //double Tdec = 0.12; //In JConst.h
+    // double vr = 0.6; //In JConst.h
     double Teff = Tdec * TMath::Sqrt( (1.+vr)/(1.-vr) );  //NOTE ======================================================================================
     cout << "Initial pT distribution : Tdec = " << Tdec << ", vr = " << vr << ", Teff = " << Teff << " and slope = 1/Teff = " << 1./Teff << endl;
     TF1 *fPtDistribution = new TF1("fPtDistribution", SingleParticlePt, 0.0, 10.0, 1);
@@ -226,7 +230,7 @@ int main(int argc, char **argv) {
             fPhiDistribution->SetParameters(params);
         }
         
-        GetEvent(allHadrons, subEventA, subEventB, allHadronsPtBins, nPtBins, ptBins, randomGenerator, fPtDistribution, fPhiDistribution, nMult, histos, bv2PtDep);
+        GetEvent(allHadrons, subEventA, subEventB, allHadronsPtBins, nPtBins, ptBins, randomGenerator, fPtDistribution, fPhiDistribution, nMult, histos, bv2PtDep, bUseGranularity);
         GetDetectorParticles(allHadrons, allHadronsDet, subEventDetA, subEventDetB, 
                              detAMax, detAMin, detBMax, detBMin, detAEff, detBEff,
                              randomGenerator, histos);
@@ -244,7 +248,7 @@ int main(int argc, char **argv) {
                                     
 // ============== END MAIN PROGRAM
 
-void GetEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *listSubB, TClonesArray **listAllPtBins, int nPtBins, double const *ptBins, TRandom3 *rand, TF1 *fPt, TF1 *fPhi, int nMult, JHistos *histos, bool bv2PtDep){
+void GetEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *listSubB, TClonesArray **listAllPtBins, int nPtBins, double const *ptBins, TRandom3 *rand, TF1 *fPt, TF1 *fPhi, int nMult, JHistos *histos, bool bv2PtDep, bool bUseGranularity){
     
     histos->hMultiplicity[0]->Fill(1.*nMult);
     
@@ -254,21 +258,22 @@ void GetEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *listS
 
     int nSub = int( nMult/2.0 );
     
+    double pT, phi, eta, px, py, pz, E;
     for(int i = 0; i < nMult; i++){
-        double pT = fPt->GetRandom();
+        pT = fPt->GetRandom();
         if(bv2PtDep) fPhi->SetParameter(10,pT);
-        double phi = fPhi->GetRandom();
-        double eta = rand->Uniform(-0.8,0.8);
+        phi = bUseGranularity ? granularPhi(fPhi->GetRandom()) : fPhi->GetRandom();
+        eta = bUseGranularity ? granularEta(rand->Uniform(-0.8,0.8)) : rand->Uniform(-0.8,0.8);
         
         histos->hPt[0]->Fill(pT);
         histos->hPhi[0]->Fill(phi);
         histos->hEta[0]->Fill(eta);
         histos->hPhiEta[0]->Fill(phi,eta);
         
-        double px = pT*TMath::Cos(phi);
-        double py = pT*TMath::Sin(phi);
-        double pz = pT*TMath::SinH(eta);
-        double  E = TMath::Sqrt(pT*pT+pz*pz); //massless
+        px = pT*TMath::Cos(phi);
+        py = pT*TMath::Sin(phi);
+        pz = pT*TMath::SinH(eta);
+        E = TMath::Sqrt(pT*pT+pz*pz); //massless
         lVec.SetPxPyPzE(px,py,pz,E);
         track.SetTrack( lVec, 0, 0, 0, 1, 0, 0, i); // Lorentz vector + isHT, isHard, isSoft, isCharged, isIsolated, isLeading, nID
         new((*listAll)[i]) JToyMCTrack( track );
@@ -365,6 +370,7 @@ void AnalyzeEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *l
     double sqrtSumWeights = 0.0, sqrtSumWeightsA = 0.0, sqrtSumWeightsB = 0.0;
 
     Qvalues *qval = new Qvalues;
+    double sqrtSumWeightsPOI[nHarmonics];
 
     for(int i = 0; i < 5; i++){
 
@@ -416,15 +422,16 @@ void AnalyzeEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *l
         histos->hEPnominator[nHisto][i]->Fill(vnEPnominator);
         histos->hEPdenominator[nHisto][i]->Fill(vnEPdenominator);
 
-        double psiPOI, QxPOI, QyPOI, QPOI, vnEPnominatorPOI, sqrtSumWeightsPOI;
-        if(true) {//nHisto==0) { //Look only trueMC for now.
-            for(int iPtBin=0;iPtBin<10;iPtBin++) {
+        double psiPOI, QxPOI, QyPOI, QPOI, vnEPnominatorPOI, imaginaryPart;
+        if(n==2) { //Look only n=2
+            for(int iPtBin=0;iPtBin<nHarmonics;iPtBin++) {
                 if(listAllPtBins[iPtBin]->GetEntriesFast()<3) continue; // If less than 2 particles, vObs will be nan.
-                sqrtSumWeightsPOI = CalculateCumulants(listAllPtBins[iPtBin], n, bUseWeightning, qval, effValues[n], histos, nHisto, bCorr);
+                sqrtSumWeightsPOI[iPtBin] = CalculateCumulants(listAllPtBins[iPtBin], n, bUseWeightning, qval, effValues[n], histos, nHisto, bCorr);
                 QxPOI = qval->Qx; QyPOI = qval->Qy; QPOI = qval->Q;
-                vnEPnominatorPOI = CalculateDotProduct(QxPOI, QyPOI, QxA, QyA) / QPOI;
+                vnEPnominatorPOI = CalculateDotProduct(QxPOI, QyPOI, QxA, QyA) / QA;
+                imaginaryPart = CalculateImaginaryPart(QxPOI, QyPOI, QxA, QyA) / QA;
                 histos->hEPnominatorPtBins[nHisto][i][iPtBin]->Fill(vnEPnominatorPOI);
-                histos->hSqrtSumWeightsPtBins[nHisto][iPtBin]->Fill(sqrtSumWeightsPOI);
+                histos->hImaginaryPart[nHisto][i][iPtBin]->Fill(imaginaryPart);
 
                 // Calculating vObs with the Q-vector from the whole event.
                 vObs = vObsCalculation(listAllPtBins[iPtBin], bUseWeightning, n, QxwoNorm, QywoNorm, normSq);
@@ -433,6 +440,10 @@ void AnalyzeEvent(TClonesArray *listAll, TClonesArray *listSubA, TClonesArray *l
                 histos->hvObsPtBins[nHisto][i][iPtBin]->Fill(vObs);
             }
         }
+    }
+
+    for(int iPtBin=0;iPtBin<nHarmonics;iPtBin++) {
+        histos->hSqrtSumWeightsPtBins[nHisto][iPtBin]->Fill(sqrtSumWeightsPOI[iPtBin]);
     }
 
     histos->hSqrtSumWeights[nHisto]->Fill( sqrtSumWeights );
@@ -530,6 +541,9 @@ double CalculateDotProduct(double ax, double ay, double bx, double by){
     return ax*bx + ay*by;
 }
 
+double CalculateImaginaryPart(double ax, double ay, double bx, double by){
+    return ay*bx - ax*by;
+}
 
 double SingleParticlePt(double *x, double *p){
     double pT = x[0];
@@ -538,8 +552,8 @@ double SingleParticlePt(double *x, double *p){
 }
 
 // This is just a lookalike model, not based on any hard evidence or model.
-double v2PtDependenceFun(double pT, double pTmax, double alpha){
-    return TMath::Power(pT/pTmax,alpha)*TMath::Exp(-alpha*(pT/pTmax - 1.0));
+double v2PtDependenceFun(double pT, double pTmax, double alphaPar){
+    return TMath::Power(pT/pTmax,alphaPar)*TMath::Exp(-alphaPar*(pT/pTmax - 1.0));
 }
 
 double SingleParticlePhi(double *x, double *p){
@@ -555,10 +569,10 @@ double SingleParticlePhi(double *x, double *p){
     double Psi4  = p[8];
     double Psi5  = p[9];
     double pT    = p[10];
-    double alpha = p[11];
+    double alphaPar = p[11];
     double pTmax = p[12];
 
-    return 1.0 + 2.*v1*TMath::Cos(phi-Psi1) + 2.*v2max*v2PtDependenceFun(pT,pTmax,alpha)*TMath::Cos(2.*(phi-Psi2))
+    return 1.0 + 2.*v1*TMath::Cos(phi-Psi1) + 2.*v2max*v2PtDependenceFun(pT,pTmax,alphaPar)*TMath::Cos(2.*(phi-Psi2))
         + 2.*v3*TMath::Cos(3.*(phi-Psi3)) + 2.*v4*TMath::Cos(4.*(phi-Psi4))
         + 2.*v5*TMath::Cos(5.*(phi-Psi5));
 }
@@ -757,9 +771,31 @@ void efficiencyCalc(EffValues *effValues, int iHarm, double detAMax, double detA
 
 int getBin(double pT, double const *bins) {
     int nBin = -1;
-    for(int iBin=0;iBin<10;iBin++) {
+    for(int iBin=0;iBin<nHarmonics;iBin++) {
         if(pT>bins[iBin] && pT<bins[iBin+1]) nBin = iBin;
     }
     return nBin;
+}
+
+double granularPhi(double phi) {
+    double sectorLowPoints[SECTORS_N+1]; //Take into account also N+1 low point, which is 2pi = 0
+    for(int i=0; i<SECTORS_N+1; i++) {
+        sectorLowPoints[i] = -PI + i*2*PI/SECTORS_N;
+    }
+    for(int i=0; i<SECTORS_N; i++) {
+        if(phi > sectorLowPoints[i] && phi < sectorLowPoints[i+1])
+            return (sectorLowPoints[i]+sectorLowPoints[i+1])/2.0;
+    }
+}
+
+double granularEta(double phi) {
+    double ringLowPoints[RINGS_N+1]; //Take into account also N+1 low point, which is 2pi = 0
+    for(int i=0; i<RINGS_N+1; i++) {
+        ringLowPoints[i] = -etaRange + i*etaRange*2.0/RINGS_N;
+    }
+    for(int i=0; i<RINGS_N; i++) {
+        if(phi > ringLowPoints[i] && phi < ringLowPoints[i+1])
+            return (ringLowPoints[i]+ringLowPoints[i+1])/2.0;
+    }
 }
 

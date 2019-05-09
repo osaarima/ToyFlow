@@ -22,7 +22,7 @@ bool isInAcc(double phi, double detMax, double detMin);
 double v2PtDependence(double *x, double *p);
 double v2PtDependenceFun(double pT, double pTmax, double alpha);
 
-void PlotToyFlow(int iType=0, bool bDrawNegRHisto = false, bool bUseWeightning = false, bool bCheckAllHistos = false, bool bPrintGraphs = false ){
+void PlotToyFlow(int iType=2, bool bDrawNegRHisto = false, bool bUseWeightning = false, bool bCheckAllHistos = false, bool bPrintGraphs = false ){
     int nType = 3;
     
     int iDrawNegRHisto=0;
@@ -38,7 +38,9 @@ void PlotToyFlow(int iType=0, bool bDrawNegRHisto = false, bool bUseWeightning =
     //TString sFileName = "toyFlow_noWeight_randomPsi_ptDep_dNdeta-1000_nEvents-100-newPtDepTest.root";
     //TString sFileName = "toyFlow_noWeight_randomPsi_ptDep_dNdeta-1000_nEvents-1000-PtDep_noWeight_1100.root";
     //TString sFileName = "toyFlow_noWeight_randomPsi_ptDep_dNdeta-1000_nEvents-100-ttestt.root";
-    TString sFileName = "toyFlow_noWeight_randomPsi_noptDep_dNdeta-1000_nEvents-1000-EPtest.root";
+    //TString sFileName = "toyFlow_noWeight_randomPsi_noptDep_dNdeta-1000_nEvents-1000-EPtest.root";
+    //TString sFileName = "toyFlow_weight_randomPsi_noptDep_dNdeta-1000_nEvents-1000-asdasd.root";
+    TString sFileName = "toyFlow_noWeight_randomPsi_noptDep_dNdeta-1000_nEvents-1000-asdasd.root";
     //run1
     //TString sFileName = "toyFlow_noWeight_randomPsi_noptDep_dNdeta-1000_nEvents-100000-run1.root";
     //TString sFileName = "toyFlow_weight_randomPsi_noptDep_dNdeta-1000_nEvents-100000-run1.root";
@@ -49,9 +51,14 @@ void PlotToyFlow(int iType=0, bool bDrawNegRHisto = false, bool bUseWeightning =
     //TString sFileName = "toyFlow_weight_randomPsi_noptDep_dNdeta-1000_nEvents-1000000-overflowTest.root";
     //TString sFileName = "toyFlow_noWeight_randomPsi_ptDep_dNdeta-1000_nEvents-100000-overflowTest.root";
     //TString sFileName = "toyFlow_weight_randomPsi_ptDep_dNdeta-1000_nEvents-100000-overflowTest.root";
-    //New puck run
+    //puck run 2
     //TString sFileName = "toyFlow_noWeight_randomPsi_ptDep_dNdeta-1000_nEvents-1000.root";
     //TString sFileName = "toyFlow_noWeight_randomPsi_noptDep_dNdeta-1000_nEvents-100000.root";
+    //puck run 3
+    //TString sFileName = "toyFlow_noWeight_randomPsi_noptDep_dNdeta-1000_nEvents-1000000-EP.root";
+    //TString sFileName = "toyFlow_noWeight_randomPsi_noptDep_dNdeta-10000_nEvents-1000000-EP-HiMulti.root";
+    //TString sFileName = "toyFlow_noWeight_randomPsi_ptDep_dNdeta-1000_nEvents-1000000-EP.root";
+    //TString sFileName = "toyFlow_noWeight_randomPsi_ptDep_dNdeta-10000_nEvents-1000000-EP-HiMulti.root";
 
     TFile *fIn = TFile::Open(sFileName,"read");
     if(fIn==0x0) {
@@ -59,31 +66,30 @@ void PlotToyFlow(int iType=0, bool bDrawNegRHisto = false, bool bUseWeightning =
         return -1;
     }
 
-    double dNdetaScaling = 1000; // Should change the scaling to its own thing, not related to nMult.
     
     const int nCoef = 5;
     const int nPtBins = 10;
     double inputFlow[nCoef] = {0.0};
     
     TH1D *hInputNumbers = (TH1D*)fIn->Get("hInputNumbers");
+    double haddScaling = hInputNumbers->GetBinContent(22);
     double nEvents = hInputNumbers->GetBinContent(1);
-    double dNdeta = hInputNumbers->GetBinContent(2);
-    dNdeta = dNdeta/dNdetaScaling;
-    double etaRange = hInputNumbers->GetBinContent(3)/dNdeta;
-    double nMult = hInputNumbers->GetBinContent(4)/dNdeta;
-    for(int i = 0; i < nCoef; i++) inputFlow[i] = hInputNumbers->GetBinContent(5+i)/dNdeta;
-    double Tdec = hInputNumbers->GetBinContent(10)/dNdeta;
-    double vr = hInputNumbers->GetBinContent(11)/dNdeta;
-    double Teff = hInputNumbers->GetBinContent(12)/dNdeta;
-    double slope = hInputNumbers->GetBinContent(13)/dNdeta;
-    double const detAMax = hInputNumbers->GetBinContent(14)/dNdeta;
-    double const detAMin = hInputNumbers->GetBinContent(15)/dNdeta;
-    double const detBMax = hInputNumbers->GetBinContent(16)/dNdeta;
-    double const detBMin = hInputNumbers->GetBinContent(17)/dNdeta;
-    double const detAEff = hInputNumbers->GetBinContent(18)/dNdeta;
-    double const detBEff = hInputNumbers->GetBinContent(19)/dNdeta;
-    double const alpha = hInputNumbers->GetBinContent(20)/dNdeta;
-    double const pTMax = hInputNumbers->GetBinContent(21)/dNdeta;
+    double dNdeta = hInputNumbers->GetBinContent(2)/haddScaling;
+    double etaRange = hInputNumbers->GetBinContent(3)/haddScaling;
+    double nMult = hInputNumbers->GetBinContent(4)/haddScaling;
+    for(int i = 0; i < nCoef; i++) inputFlow[i] = hInputNumbers->GetBinContent(5+i)/haddScaling;
+    double Tdec = hInputNumbers->GetBinContent(10)/haddScaling;
+    double vr = hInputNumbers->GetBinContent(11)/haddScaling;
+    double Teff = hInputNumbers->GetBinContent(12)/haddScaling;
+    double slope = hInputNumbers->GetBinContent(13)/haddScaling;
+    double const detAMax = hInputNumbers->GetBinContent(14)/haddScaling;
+    double const detAMin = hInputNumbers->GetBinContent(15)/haddScaling;
+    double const detBMax = hInputNumbers->GetBinContent(16)/haddScaling;
+    double const detBMin = hInputNumbers->GetBinContent(17)/haddScaling;
+    double const detAEff = hInputNumbers->GetBinContent(18)/haddScaling;
+    double const detBEff = hInputNumbers->GetBinContent(19)/haddScaling;
+    double const alpha = hInputNumbers->GetBinContent(20)/haddScaling;
+    double const pTMax = hInputNumbers->GetBinContent(21)/haddScaling;
     cout << "alpha: " << alpha << ", pTMax: " << pTMax << endl;
 
     
@@ -547,7 +553,7 @@ void PlotToyFlow(int iType=0, bool bDrawNegRHisto = false, bool bUseWeightning =
         v6cumul[i] = CalculateV2Using6Cumul( meanQ6[i], meanQ4[i], meanQ2[i], weight );
         vEP[i] = CalculateV2UsingEPorSP(  meanEPnom[i], meanEPdenom[i], weight );
         vSP[i] = CalculateV2UsingEPorSP(  meanSPnom[i], meanSPdenom[i], weight );
-        for(int iPtBin=0;iPtBin<nPtBins;iPtBin++) vEPPtBins[i][iPtBin] = CalculateV2UsingEPorSP(  meanEPnomPtBins[i][iPtBin], meanEPdenom[i], weightPtBins[0] ); //TODO: implement pt-binned weight
+        for(int iPtBin=0;iPtBin<nPtBins;iPtBin++) vEPPtBins[i][iPtBin] = CalculateV2UsingEPorSP(  meanEPnomPtBins[i][iPtBin], meanEPdenom[i], weightPtBins[iPtBin] );
         // errors
         v1cumulError[i] = meanErrorQ[i]/weight + meanQ[i]/weight/weight*weightError;
         v4cumulError[i] = CalculateV2ErrorUsing4Cumul( meanQ4[i], meanQ2[i], meanErrorQ4[i], meanErrorQ2[i], weight, weightError );
